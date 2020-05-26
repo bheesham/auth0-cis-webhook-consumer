@@ -40,7 +40,7 @@ def process_api_call(
             'statusCode': 200,
             'body': 'API request received'}
     elif event.get('path') == '/post':
-        if verify_token(authorization, CONFIG.audience):
+        if verify_token(authorization):
             user_id = body.get('id')
             profile = get_user_profile(user_id)
             result = update_auth0_user(user_id, profile)

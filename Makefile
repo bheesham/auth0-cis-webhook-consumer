@@ -15,9 +15,24 @@ TEST_DOMAIN_ZONE	:= sso.allizom.org.
 PROD_CERT_ARN		:= arn:aws:acm:us-east-1:320464205386:certificate/17c2229f-5dff-4818-aa71-34516faefaf8
 DEV_CERT_ARN		:= arn:aws:acm:us-east-1:320464205386:certificate/f829822f-e9b5-4bcd-a624-1dc1270ddf8d
 TEST_CERT_ARN		:= arn:aws:acm:us-east-1:320464205386:certificate/b7d6a423-23c6-40df-8334-32353c83ca82
-PROD_AUDIENCE		:= hook.sso.mozilla.com
-DEV_AUDIENCE		:= hook.dev.sso.allizom.org
-TEST_AUDIENCE		:= hook.test.sso.allizom.org
+
+PROD_ENVIRONMENT_NAME	:= production
+DEV_ENVIRONMENT_NAME	:= development
+TEST_ENVIRONMENT_NAME	:= testing
+
+PROD_DISCOVERY_URL	:= https://auth.mozilla.com/.well-known/mozilla-iam
+# https://github.com/mozilla-iam/cis/issues/239
+DEV_DISCOVERY_URL	:= https://auth.allizom.org/.well-known/mozilla-iam
+TEST_DISCOVERY_URL	:= https://auth.mozilla.com/.well-known/mozilla-iam
+
+PROD_NOTIFICATION_AUDIENCE		:= pDjd8bJqoaeIAdLfMx9j7mQ9OiDeibla
+DEV_NOTIFICATION_AUDIENCE		:= T281KFOlJVuc0YZjfcyb8u99qCBi5ukJ
+# TODO : I'm unsure why this client_id is stored in the parameter store field for testing, it doesn't look like an Auth0 client_id
+TEST_NOTIFICATION_AUDIENCE		:= hkqJ31Ay8s4qNmlfsfRoxN81debp_tvDT2KPAuFROUbnNkywcMBlKWUBuGnqi9rc
+
+PROD_CLIENT_ID		:= ztz01UXzlek7oGIn4b4s1wh3FGEHwtXj
+DEV_CLIENT_ID		:= Vh35EgJf4ZPK1BPSQW4qVmcnSnWgPtC9
+TEST_CLIENT_ID		:= ztz01UXzlek7oGIn4b4s1wh3FGEHwtXj
 
 .PHONY: deploy-dev
 deploy-dev:
@@ -30,6 +45,9 @@ deploy-dev:
 		 "CustomDomainName=$(DEV_DOMAIN_NAME) \
 		 	DomainNameZone=$(DEV_DOMAIN_ZONE) \
 		 	CertificateArn=$(DEV_CERT_ARN) \
-			WebHookTokenAudience=$(DEV_AUDIENCE)" \
+			EnvironmentName=$(DEV_ENVIRONMENT_NAME) \
+			DiscoveryUrl=$(DEV_DISCOVERY_URL) \
+			NotificationAudience=$(DEV_NOTIFICATION_AUDIENCE) \
+			ClientId=$(DEV_CLIENT_ID)" \
 		 Auth0CISWebHookConsumerUrl
 

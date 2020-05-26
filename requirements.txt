@@ -1,0 +1,3 @@
+python-jose
+requests
+boto3
