@@ -1,10 +1,9 @@
 import logging
 import os
+from typing import Optional
 
 import requests
 import boto3
-
-logger = logging.getLogger()
 
 
 def get_paginated_results(product, action, key, credentials=None, args=None):
@@ -18,6 +17,8 @@ def get_paginated_results(product, action, key, credentials=None, args=None):
 class Config:
     def __init__(self):
         self.log_level = os.getenv('LOG_LEVEL', 'INFO')
+        self.logger = logging.getLogger()
+        self.logger.setLevel(self.log_level)
         self.domain_name = os.getenv('DOMAIN_NAME')
         self.environment_name = os.getenv('ENVIRONMENT_NAME')
         self.discovery_url = os.getenv(
@@ -25,55 +26,65 @@ class Config:
             'https://auth.mozilla.com/.well-known/mozilla-iam')
         self.notification_audience = os.getenv('NOTIFICATION_AUDIENCE')
         self.client_id = os.getenv('CLIENT_ID')
-        logging.getLogger().setLevel(self.log_level)
-        self.discovery_document = None
-        self.oidc_discovery_document = None
-        self.get_discovery_document()
-        self.client_secret = None
-        self.get_parameter_store_values()
+        self._discovery_document = None
+        self._oidc_discovery_document = None
+        self._jwks = None
+        self._secrets = None
 
-    def get_discovery_document(self) -> None:
-        """Fetch the IAM discovery document and enrich it with the OIDC
-        discovery document and the JWKS.
-        If the discovery_document is not available in AWS Lambda cache, fetch
-        the CONFIG.discovery_url and parse it into a dictionary. Fetch the
-        content of the oidc_discovery_uri and the jwks_uri and add it to the
-        dictionary
-        :return:
-        """
-        logger.debug('Fetching discovery documents')
-        self.discovery_document = requests.get(self.discovery_url).json()
-        # TODO : This won't work in dev due to this bug https://github.com/mozilla-iam/cis/issues/239#issuecomment-633789313
-        self.oidc_discovery_document = requests.get(
-            self.discovery_document['oidc_discovery_uri']).json()
-        self.oidc_discovery_document['jwks'] = requests.get(
-            self.oidc_discovery_document['jwks_uri']).json()
+    def get_url(self, url):
+        response = requests.get(url)
+        if response.ok:
+            return response.json()
+        else:
+            self.logger.error('Unable to fetch {} : {} {}'.format(
+                url,
+                response.status_code,
+                response.text
+            ))
+            return None
 
-    def get_parameter_store_values(self) -> None:
-        """Fetch secrets from AWS SSM Parameter Store
+    @property
+    def discovery_document(self) -> dict:
+        if self._discovery_document is None:
+            self.logger.debug('Fetching discovery document')
+            self._discovery_document = self.get_url(self.discovery_url)
+        return self._discovery_document
 
-        :return:
-        """
-        path = '/iam/cis/{}/auth0_cis_webhook_consumer/'.format(
-            self.environment_name)
-        args = {
-            'Path': path[:-1],
-            'WithDecryption': True
-        }
-        parameters = get_paginated_results(
-            'ssm', 'get_parameters_by_path', 'Parameters', args=args)
-        logger.debug('Fetched {} parameters from AWS SSM'.format(
-            len(parameters)))
-        for parameter in parameters:
-            name = parameter['Name']
-            setattr(
-                self,
-                name[name.startswith(path) and len(path):],
-                parameter['Value']
-            )
+    @property
+    def oidc_discovery_document(self) -> Optional[dict]:
+        if self._oidc_discovery_document is None:
+            if self.discovery_document is None:
+                self.logger.error(
+                    'Unable to fetch OIDC discovery document : URL unknown')
+                return None
+            self.logger.debug('Fetching OIDC discovery document')
+            self._oidc_discovery_document = self.get_url(
+                self.discovery_document['oidc_discovery_uri'])
+        return self._oidc_discovery_document
 
+    @property
+    def jwks(self) -> Optional[dict]:
+        if self._jwks is None:
+            if self.oidc_discovery_document is None:
+                self.logger.error('Unable to fetch JWKS : URL unknown')
+                return None
+            self.logger.debug('Fetching JWKS')
+            self._jwks = self.get_url(
+                self.oidc_discovery_document['jwks_uri'])
+        return self._jwks
 
-# TODO : Confirm that CONFIG is a global from AWS Lambda's perspective and that
-# it gets cached and doesn't refetch discovery docs and paramters when it's
-# imported in each module
-CONFIG = Config()
+    @property
+    def secrets(self) -> dict:
+        if self._secrets is None:
+            path = '/iam/cis/{}/auth0_cis_webhook_consumer/'.format(
+                self.environment_name)
+            args = {'Path': path[:-1], 'WithDecryption': True}
+            parameters = get_paginated_results(
+                'ssm', 'get_parameters_by_path', 'Parameters', args=args)
+            self.logger.debug('Fetched {} parameters from AWS SSM'.format(
+                len(parameters)))
+            self._secrets = {}
+            for parameter in parameters:
+                name = parameter['Name'][len(path):]
+                self._secrets[name] = parameter['Value']
+        return self._secrets

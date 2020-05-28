@@ -90,10 +90,13 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - ssm:GetParameterHistory
                   - ssm:GetParametersByPath
+                Resource: !Join [ '', [ 'arn:aws:ssm:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':parameter/iam/cis/', !Ref EnvironmentName, '/auth0_cis_webhook_consumer' ] ]
+              - Effect: Allow
+                Action:
                   - ssm:GetParameters
                   - ssm:GetParameter
+                  - ssm:GetParameterHistory
                 Resource: !Join [ '', [ 'arn:aws:ssm:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':parameter/iam/cis/', !Ref EnvironmentName, '/auth0_cis_webhook_consumer/*' ] ]
   Auth0CISWebHookConsumerFunction:
     Type: AWS::Lambda::Function
@@ -102,7 +105,7 @@ Resources:
       Code: build/
       Environment:
         Variables:
-          LOG_LEVEL: INFO
+          LOG_LEVEL: DEBUG
           DOMAIN_NAME: !Ref CustomDomainName  # What if a domain name isn't provided?
           ENVIRONMENT_NAME: !Ref EnvironmentName
           DISCOVERY_URL: !Ref DiscoveryUrl
@@ -177,7 +180,7 @@ Resources:
       MethodSettings:
         - DataTraceEnabled: true
           HttpMethod: '*'
-          # LoggingLevel: INFO
+          LoggingLevel: ERROR
           ResourcePath: /*
       RestApiId: !Ref Auth0CISWebHookConsumerApi
       Tags:

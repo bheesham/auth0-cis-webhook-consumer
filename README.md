@@ -15,6 +15,14 @@ tool with serverless.yml to deploy). In the long run I hope to change this to
 fit with the style of other CIS components but for the moment, this is faster
 for me to get this up and running.
 
+# Architecture
+
+* `auth0-cis-webhook-consumer.dev.sso.allizom.org.` DNS record in `mozilla-iam`
+  AWS account is an alias to AWS API Gateway
+* API Gateway proxies all request to AWS Lambda function
+* Lambda function calls appropriate Python function based on the URL path in the
+  request
+
 # Deploy
 
 ## Provision Auth0 Clients
@@ -69,3 +77,11 @@ curl -H  "Authorization: Bearer YOUR_TOKEN_HERE" \
   -d '{"operation": "update", id": "ad|Mozilla-LDAP|dinomcvouch"}' -i \
   https://auth0-cis-webhook-consumer.dev.sso.allizom.org/post
 ```
+
+# Problems with the dev environment
+
+These problems would need to be fixed to be able to use this in dev
+* The URL https://auth.allizom.org/.well-known/openid-configuration doesn't
+  correctly proxy the request on to https://auth-dev.mozilla.auth0.com/.well-known/openid-configuration
+  * https://github.com/mozilla-iam/cis/issues/239#issuecomment-633789313
+* https://person.api.dev.sso.allizom.org appears to return 500 errors
