@@ -2,7 +2,7 @@ import json
 import logging
 import traceback
 
-from .config import CONFIG
+from .config import Config
 
 from .utils import (
     verify_token,
@@ -10,7 +10,13 @@ from .utils import (
     update_auth0_user
 )
 
+CONFIG = Config()
 logger = logging.getLogger()
+if len(logging.getLogger().handlers) == 0:
+    logger.addHandler(logging.StreamHandler())
+fmt = "[%(levelname)s] %(asctime)s %(filename)s:%(lineno)d %(message)s\n"
+formatter = logging.Formatter(fmt=fmt)
+logging.getLogger().handlers[0].setFormatter(formatter)
 logging.getLogger().setLevel(CONFIG.log_level)
 logging.getLogger('boto3').propagate = False
 logging.getLogger('botocore').propagate = False
@@ -40,11 +46,11 @@ def process_api_call(
             'statusCode': 200,
             'body': 'API request received'}
     elif event.get('path') == '/post':
-        if verify_token(authorization, CONFIG.audience):
+        if verify_token(authorization):
             user_id = body.get('id')
             profile = get_user_profile(user_id)
-            result = update_auth0_user(user_id, profile)
-            if result:
+            if (user_id is not None and profile is not None
+                    and update_auth0_user(user_id, profile)):
                 return {
                     'headers': {'Content-Type': 'text/html'},
                     'statusCode': 200,
