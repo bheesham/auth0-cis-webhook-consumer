@@ -5,13 +5,23 @@ Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
     - Label:
-        default: API
+        default: API Gateway
       Parameters:
       - CustomDomainName
       - DomainNameZone
       - CertificateArn
     - Label:
         default: Configuration
+      Parameters:
+        - EnvironmentName
+        - NotificationDiscoveryUrl
+        - NotificationAudience
+        - PersonAPIDiscoveryUrl
+        - PersonAPIClientID
+        - PersonAPIAudience
+        - ManagementAPIClientID
+        - ManagementAPIAudience
+        - ManagementAPIDiscoveryUrl
     ParameterLabels:
       CustomDomainName:
         default: Custom DNS Domain Name
@@ -21,12 +31,22 @@ Metadata:
         default: AWS ACM Certificate ARN for the Custom DNS Domain Name
       EnvironmentName:
         default: The name of the environment which is used in AWS SSM Parameter Store paths
-      DiscoveryUrl:
-        default: The discovery URL for the environment
+      NotificationDiscoveryUrl:
+        default: The discovery URL for the environment used by the CIS Webhook notifier
       NotificationAudience:
         default: The expected audience of the token
-      ClientId:
-        default: The Auth0 Client ID to use to query the Person API
+      PersonAPIDiscoveryUrl:
+        default: The discovery URL for the environment used by the CIS PersonAPI
+      PersonAPIClientID:
+        default: Auth0 Application Client ID used to query the CIS PersonAPI
+      PersonAPIAudience:
+        default: OIDC Audience for the CIS PersonAPI
+      ManagementAPIClientID:
+        default: Auth0 Application Client ID used to write to the Auth0 Management API
+      ManagementAPIAudience:
+        default: OIDC Audience for the Auth0 Management API
+      ManagementAPIDiscoveryUrl:
+        default: The discovery URL for the environment used by the Auth0 Management API
 Parameters:
   CustomDomainName:
     Type: String
@@ -43,15 +63,30 @@ Parameters:
   EnvironmentName:
     Type: String
     Description: The name of the environment which is used in AWS SSM Parameter Store paths
-  DiscoveryUrl:
+  NotificationDiscoveryUrl:
     Type: String
-    Description: The discovery URL for the environment
+    Description: The discovery URL for the environment used by the CIS Webhook notifier
   NotificationAudience:
     Type: String
     Description: The expected audience of the token
-  ClientId:
+  PersonAPIDiscoveryUrl:
     Type: String
-    Description: The Auth0 Client ID to use to query the Person API
+    Description: The discovery URL for the environment used by the CIS PersonAPI
+  PersonAPIClientID:
+    Type: String
+    Description: Auth0 Application Client ID used to query the CIS PersonAPI
+  PersonAPIAudience:
+    Type: String
+    Description: OIDC Audience for the CIS PersonAPI
+  ManagementAPIClientID:
+    Type: String
+    Description: Auth0 Application Client ID used to write to the Auth0 Management API
+  ManagementAPIAudience:
+    Type: String
+    Description: OIDC Audience for the Auth0 Management API
+  ManagementAPIDiscoveryUrl:
+    Type: String
+    Description: The discovery URL for the environment used by the Auth0 Management API
 Conditions:
   UseCustomDomainName: !Not [ !Equals [ !Ref 'CustomDomainName', '' ] ]
 Rules:
@@ -108,9 +143,14 @@ Resources:
           LOG_LEVEL: DEBUG
           DOMAIN_NAME: !Ref CustomDomainName  # What if a domain name isn't provided?
           ENVIRONMENT_NAME: !Ref EnvironmentName
-          DISCOVERY_URL: !Ref DiscoveryUrl
+          NOTIFICATION_DISCOVERY_URL: !Ref NotificationDiscoveryUrl
           NOTIFICATION_AUDIENCE: !Ref NotificationAudience
-          CLIENT_ID: !Ref ClientId
+          PERSON_API_DISCOVERY_URL: !Ref PersonAPIDiscoveryUrl
+          PERSON_API_CLIENT_ID: !Ref PersonAPIClientID
+          PERSON_API_AUDIENCE: !Ref PersonAPIAudience
+          MANAGEMENT_API_CLIENT_ID: !Ref ManagementAPIClientID
+          MANAGEMENT_API_AUDIENCE: !Ref ManagementAPIAudience
+          MANAGEMENT_API_DISCOVERY_URL: !Ref ManagementAPIDiscoveryUrl
       Handler: auth0_cis_webhook_consumer.app.lambda_handler
       Runtime: python3.8
       Role: !GetAtt Auth0CISWebHookConsumerFunctionRole.Arn
@@ -256,3 +296,6 @@ Outputs:
   Auth0CISWebHookConsumerFunctionName:
     Description: The AWS Lambda function name
     Value: !Ref Auth0CISWebHookConsumerFunction
+  Auth0CISWebHookConsumerFunctionLogGroup:
+    Description: The AWS CloudWatch LogGroup path
+    Value: !Ref Auth0CISWebHookConsumerFunctionLogGroup
