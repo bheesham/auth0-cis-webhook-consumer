@@ -1,21 +1,30 @@
 import logging
+import json
 
 import requests
 import urllib.parse
 from jose import jwt, exceptions
 from typing import Optional
 
-
 from .config import Config
 
-CONFIG = Config()
 logger = logging.getLogger(__name__)
-logger.setLevel(CONFIG.log_level)
+CONFIG = Config()
 
 
-def verify_token(authorization: str) -> bool:
+def filter_profile(item):
+    """Strip metadata and signatures from a user profile for easy display"""
+    return (
+        item if type(item) != dict
+        else {key: filter_profile(value) for key, value in item.items()
+              if key not in ['metadata', 'signature']})
+
+
+def verify_token(authorization: str, jwks: dict, issuer: str) -> bool:
     """Verify that bearer token is valid
 
+    :param issuer: Expected issuer of the token
+    :param jwks: JSON Web Key Set to verify the token against
     :param authorization: Bearer token
     :return: True if the token is valid otherwise False
     """
@@ -25,8 +34,10 @@ def verify_token(authorization: str) -> bool:
         return False
 
     token = authorization.split()[1]
-    jwks = CONFIG.jwks
-    issuer = CONFIG.oidc_discovery_document['issuer']
+    logger.debug('Verifying token against issuer {} and audience {}'.format(
+        issuer,
+        CONFIG.notification_audience
+    ))
 
     try:
         id_token = jwt.decode(
@@ -36,69 +47,214 @@ def verify_token(authorization: str) -> bool:
             issuer=issuer
         )
     except exceptions.JOSEError as e:
-        logger.error("Invalid bearer token : {}".format(e))
+        logger.error("Invalid bearer token : {} : {}".format(token, e))
         return False
     logger.debug("Valid bearer token : {}".format(id_token))
     return True
 
 
-def get_authorization() -> Optional[str]:
-    if CONFIG.secrets.get('client_secret') is None:
+def get_authorization(
+        token_endpoint: str,
+        client_details: dict) -> Optional[str]:
+    """Call a token endpoint to provision an access token and return it
+
+    :param token_endpoint: The URL of the Auth0 token endpoint
+    :param client_details: A dictionary containing
+               client_id: The OIDC client_id
+               client_secret: The associated OIDC client_secret
+               audience: The OIDC audience to provision the access token for
+    :return: An access token string
+    """
+    if client_details.get('client_secret') is None:
         logger.error('Unable to fetch user profile without client_secret')
         return None
-    audience = CONFIG.discovery_document['api']['audience']
-    token_endpoint = CONFIG.oidc_discovery_document['token_endpoint']
     payload = {
-        'client_id': CONFIG.client_id,
-        'client_secret': CONFIG.secrets['client_secret'],
-        'audience': audience,
+        'client_id': client_details['client_id'],
+        'client_secret': client_details['client_secret'],
+        'audience': client_details['audience'],
         'grant_type': 'client_credentials'
     }
-    # TODO : We could get the access token in app.py maybe and save it as a global
-    # so it's available for future instantiations without reprovisioning a token
-    # or maybe we persist it somewhere based on it's "expires_in" value
+    # TODO : We could get the access token in app.py maybe and save it as a
+    # global so it's available for future instantiations without reprovisioning
+    # a token or maybe we persist it somewhere based on it's "expires_in" value
     response = requests.post(
         url=token_endpoint,
         json=payload
     )
     if not response.ok:
-        logger.error('Unable to fetch access token : {} {}'.format(
-            response.status_code, response.text))
+        logger.error(
+            'Unable to fetch access token from {} with payload {} : {} '
+            '{}'.format(
+                token_endpoint, payload, response.status_code, response.text))
         return None
     access_token = response.json().get('access_token')
     token_type = response.json().get('token_type')
-    logger.debug('Access token fetched of type {}'.format(token_type))
+    logger.debug('Access token fetched of type {} from {}'.format(
+        token_type, token_endpoint))
     return "{} {}".format(token_type, access_token)
 
 
 def get_user_profile(user_id: str) -> Optional[dict]:
-    """Fetch the user profile from CIS for the user_id
+    """Fetch the user profile from CIS PersonAPI for the user_id
 
     :param user_id: A CIS user ID
     :return:
     """
-    headers = {'authorization': get_authorization()}
-    url = "/".join([
-        CONFIG.discovery_document['api']['endpoints']['person'],
-        'v2/user/user_id',
-        urllib.parse.quote_plus(user_id)
-    ])
+    person_api_authorization = get_authorization(
+        CONFIG.personapi_discovery_document['token_endpoint'],
+        CONFIG.person_api)
+    if person_api_authorization is None:
+        return None
+    headers = {'authorization': person_api_authorization}
+    url = 'https://person.{audience}/v2/user/user_id/{escaped_user_id}'.format(
+        audience=CONFIG.person_api['audience'],
+        escaped_user_id=urllib.parse.quote_plus(user_id)
+    )
     logger.debug('Querying URL {} with headers {}'.format(url, headers))
     response = requests.get(url=url, headers=headers)
     if response.ok:
-        logger.debug('User profile fetched for {} : {}'.format(user_id, response.json().get('access_information')))
-        return response.json()
+        profile = response.json()
+        logger.debug('User profile fetched from {} : {}'.format(
+            url,
+            json.dumps(filter_profile(profile))))
+        return profile
     else:
         logger.error('Unable to fetch user profile for {} : {} {}'.format(
             user_id, response.status_code, response.text))
         return None
 
 
-def update_auth0_user(user_id: str, profile: dict) -> bool:
-    """Update the Auth0 user with the new group list
+def hack_user_id(user_id):
+    """Return a transformed user_id for LDAP users for the dev management API
+
+    If the Auth0 CIS Webhook Consumer is POSTing changes to the auth-dev
+    Auth0 management API, then transform any LDAP user_id's from their prod
+    syntax to an equivalent dev syntax. This will enable querying the prod
+    PersonAPI while writing to the dev Management API
+
+    :param user_id: String of the user's user ID
+    :return: Either the original user ID or a transformed user ID
+    """
+    prod_ldap_user_id_prefix = 'ad|Mozilla-LDAP|'
+    dev_ldap_user_id_prefix = 'ad|Mozilla-LDAP-Dev|'
+    logger.debug(
+        f"{user_id=} {CONFIG.management_api_discovery_document['issuer']=}")
+    if (user_id.startswith(prod_ldap_user_id_prefix)
+            and CONFIG.management_api_discovery_document['issuer'] == 'https://auth-dev.mozilla.auth0.com/'):
+        # Hack to translate LDAP user IDs fetched from production and added to
+        # Auth0 auth-dev
+        result = "{}{}".format(
+            dev_ldap_user_id_prefix,
+            user_id[len(prod_ldap_user_id_prefix):])
+        logger.debug('Hacking user_id from {} to {}'.format(user_id, result))
+        return result
+    else:
+        return user_id
+
+
+def process_auth0_user(user_id: str, operation: str) -> bool:
+    """Process the operation on the Auth0 user
+
+    Requires Auth0 Management API scopes
+    * update:users
+    * update:users_app_metadata
 
     :param user_id: The user's user ID
-    :param profile: The user's profile
+    :param operation: The operation to perform, "create", "update", "delete"
     :return:
     """
-    return True
+    if operation == "create":
+        # Would we ever want to trigger user creation in Auth0 because a CIS
+        # profile was created? I'd imagine not, as the Auth0 management API
+        # create only creates database and passwordless users
+        logger.debug(
+            "Ignoring request to create {} as we don't do Auth0 user "
+            "creation".format(user_id))
+        return True
+
+    if CONFIG.management_api_discovery_document is None:
+        return False
+    auth0_management_api_authorization = get_authorization(
+        CONFIG.management_api_discovery_document['token_endpoint'],
+        CONFIG.management_api)
+    if auth0_management_api_authorization is None:
+        return False
+    headers = {'authorization': auth0_management_api_authorization}
+    url = '{issuer}api/v2/users/{escaped_user_id}'.format(
+        issuer=CONFIG.management_api_discovery_document['issuer'],
+        escaped_user_id=urllib.parse.quote_plus(hack_user_id(user_id))
+    )
+
+    if operation == "delete":
+        # https://github.com/mozilla-iam/auth0-deploy/blob/8659ce4cef35ac22e459b35c09ffcc038b7f9bf8/rules/activate-new-users-in-CIS.js#L36
+        payload = {
+            'user_metadata': {
+                'existsInCIS': False
+            }
+        }
+        logger.info('Marking {} as existsInCIS False'.format(user_id))
+    elif operation == "update":
+        profile = get_user_profile(user_id)
+        if profile is None:
+            return False
+        access_groups = []
+        for publisher_name, data in profile.get(
+                'access_information', {}).items():
+            if data.get('values') is None:
+                continue
+            for value in data['values']:
+                if publisher_name == 'ldap':
+                    access_groups.append(value)
+                elif publisher_name == 'hris':
+                    # The hris section of access_information doesn't contain
+                    # groups, but instead contains employee_id, worker_type etc
+                    continue
+                elif publisher_name == 'access_provider':
+                    # The access_provider section of access_information doesn't
+                    # seem to contain groups (or anything)
+                    continue
+                else:
+                    # prepend "publisher_" to all groups except those from
+                    # the ldap publisher
+                    access_groups.append('_'.join([publisher_name, value]))
+
+        logger.debug('Going to add groups to Auth0 app_metadata : {}'.format(
+            access_groups))
+        payload = {
+            'app_metadata': {
+                'groups': access_groups
+            }
+        }
+    else:
+        logger.error('Unknown operation {}'.format(operation))
+        return False
+
+    if CONFIG.user_whitelist is not None:
+        if user_id in CONFIG.user_whitelist:
+            logger.info(
+                'Performing Auth0 update on {} as the user is in the '
+                'whitelist'.format(user_id))
+        else:
+            logger.debug(
+                'Skipping Auth0 update on {} as the user is not in the '
+                'whitelist'.format(user_id))
+            return True
+    # https://auth0.com/docs/api/management/v2/#!/Users/patch_users_by_id
+    response = requests.patch(
+        url=url,
+        json=payload,
+        headers=headers)
+    if not response.ok:
+        logger.error(
+            'Auth0 Management API profile update failed {} : {} : {}'.format(
+                url,
+                payload,
+                response.text))
+    else:
+        logger.debug(
+            'Successfully updated Auth0 management API for {} with response '
+            '{}'.format(
+                url,
+                response.text
+            ))
+    return response.ok

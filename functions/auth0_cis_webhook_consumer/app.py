@@ -6,31 +6,31 @@ from .config import Config
 
 from .utils import (
     verify_token,
-    get_user_profile,
-    update_auth0_user
+    process_auth0_user
 )
 
-CONFIG = Config()
 logger = logging.getLogger()
 if len(logging.getLogger().handlers) == 0:
     logger.addHandler(logging.StreamHandler())
 fmt = "[%(levelname)s] %(asctime)s %(filename)s:%(lineno)d %(message)s\n"
 formatter = logging.Formatter(fmt=fmt)
 logging.getLogger().handlers[0].setFormatter(formatter)
-logging.getLogger().setLevel(CONFIG.log_level)
 logging.getLogger('boto3').propagate = False
 logging.getLogger('botocore').propagate = False
 logging.getLogger('urllib3').propagate = False
+CONFIG = Config()
+logging.getLogger().setLevel(CONFIG.log_level)
 
 
 def process_api_call(
         event: dict,
-        authorization: str,
+        cis_webhook_authorization: str,
         body: dict) -> dict:
     """Process an API Gateway call depending on the URL path called
 
     :param event: The API Gateway request event
-    :param authorization: A bearer token
+    :param cis_webhook_authorization: A bearer token from the CIS webhook
+           service
     :param body: The parsed body that was POSTed to the API Gateway
     :return: A dictionary of an API Gateway HTTP response
     """
@@ -46,11 +46,15 @@ def process_api_call(
             'statusCode': 200,
             'body': 'API request received'}
     elif event.get('path') == '/post':
-        if verify_token(authorization):
+        if verify_token(
+                cis_webhook_authorization,
+                CONFIG.notification_jwks,
+                CONFIG.notification_oidc_discovery_document['issuer']):
             user_id = body.get('id')
-            profile = get_user_profile(user_id)
-            if (user_id is not None and profile is not None
-                    and update_auth0_user(user_id, profile)):
+            # https://github.com/mozilla-iam/cis/blob/73f21ab201b4f242512786dfc8e1707fccf7f3c5/python-modules/cis_notifications/cis_notifications/event.py#L44-L51
+            operation = body.get('operation')
+            if (user_id is not None and operation is not None
+                    and process_auth0_user(user_id, operation)):
                 return {
                     'headers': {'Content-Type': 'text/html'},
                     'statusCode': 200,
@@ -83,10 +87,15 @@ def lambda_handler(event: dict, context: dict) -> dict:
     logger.debug('event is {}'.format(event))
     if event.get('resource') == '/{proxy+}':
         try:
-            headers = event['headers'] if event['headers'] is not None else {}
-            authorization = headers.get('authorization')
+            headers = (
+                {x.lower(): event['headers'][x] for x in event['headers']}
+                if event['headers'] is not None else {})
+            cis_webhook_authorization = headers.get('authorization')
             body = json.loads(event['body'])
-            return process_api_call(event, authorization, body)
+            return process_api_call(event, cis_webhook_authorization, body)
+        except json.decoder.JSONDecodeError:
+            logger.error('Unable to parse POSTed body : {}'.format(
+                event['body']))
         except Exception as e:
             logger.error(str(e))
             logger.error(traceback.format_exc())

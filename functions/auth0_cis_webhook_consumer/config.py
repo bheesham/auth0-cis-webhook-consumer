@@ -16,62 +16,71 @@ def get_paginated_results(product, action, key, credentials=None, args=None):
 
 class Config:
     def __init__(self):
+        self._notification_discovery_document = None
+        self._notification_oidc_discovery_document = None
+        self._notification_jwks = None
+        self._secrets = None
+        self._fetched_urls = {}
         self.log_level = os.getenv('LOG_LEVEL', 'INFO')
-        self.logger = logging.getLogger()
-        self.logger.setLevel(self.log_level)
+        self.logger = logging.getLogger(__name__)
         self.domain_name = os.getenv('DOMAIN_NAME')
         self.environment_name = os.getenv('ENVIRONMENT_NAME')
-        self.discovery_url = os.getenv(
-            'DISCOVERY_URL',
-            'https://auth.mozilla.com/.well-known/mozilla-iam')
+        self.user_whitelist = os.getenv('USER_WHITELIST').split(',') if os.getenv('USER_WHITELIST') else None
+        self.notification_discovery_url = os.getenv(
+            'NOTIFICATION_DISCOVERY_URL')
         self.notification_audience = os.getenv('NOTIFICATION_AUDIENCE')
-        self.client_id = os.getenv('CLIENT_ID')
-        self._discovery_document = None
-        self._oidc_discovery_document = None
-        self._jwks = None
-        self._secrets = None
+        self.person_api = {
+            'client_id': os.getenv('PERSON_API_CLIENT_ID'),
+            'client_secret': self.secrets.get('personapi_client_secret'),
+            'audience': os.getenv('PERSON_API_AUDIENCE'),
+            'discovery_url': os.getenv('PERSON_API_DISCOVERY_URL')
+        }
+        self.management_api = {
+            'client_id': os.getenv('MANAGEMENT_API_CLIENT_ID'),
+            'client_secret': self.secrets.get(
+                'management_api_client_secret'),
+            'audience': os.getenv('MANAGEMENT_API_AUDIENCE'),
+            'discovery_url': os.getenv('MANAGEMENT_API_DISCOVERY_URL')
+        }
 
     def get_url(self, url):
-        response = requests.get(url)
-        if response.ok:
-            return response.json()
+        if self._fetched_urls.get(url) is None:
+            self.logger.debug('Fetching URL : {}'.format(url))
+            response = requests.get(url)
+            if response.ok:
+                self._fetched_urls[url] = response.json()
+                return self._fetched_urls[url]
+            else:
+                self.logger.error('Unable to fetch {} : {} {}'.format(
+                    url,
+                    response.status_code,
+                    response.text
+                ))
+                return None
         else:
-            self.logger.error('Unable to fetch {} : {} {}'.format(
-                url,
-                response.status_code,
-                response.text
-            ))
-            return None
+            return self._fetched_urls[url]
 
     @property
-    def discovery_document(self) -> dict:
-        if self._discovery_document is None:
-            self.logger.debug('Fetching discovery document')
-            self._discovery_document = self.get_url(self.discovery_url)
-        return self._discovery_document
+    def notification_discovery_document(self) -> Optional[dict]:
+        return self.get_url(self.notification_discovery_url)
 
     @property
-    def oidc_discovery_document(self) -> Optional[dict]:
-        if self._oidc_discovery_document is None:
-            if self.discovery_document is None:
-                self.logger.error(
-                    'Unable to fetch OIDC discovery document : URL unknown')
-                return None
-            self.logger.debug('Fetching OIDC discovery document')
-            self._oidc_discovery_document = self.get_url(
-                self.discovery_document['oidc_discovery_uri'])
-        return self._oidc_discovery_document
+    def notification_oidc_discovery_document(self) -> Optional[dict]:
+        return self.get_url(
+            self.notification_discovery_document['oidc_discovery_uri'])
 
     @property
-    def jwks(self) -> Optional[dict]:
-        if self._jwks is None:
-            if self.oidc_discovery_document is None:
-                self.logger.error('Unable to fetch JWKS : URL unknown')
-                return None
-            self.logger.debug('Fetching JWKS')
-            self._jwks = self.get_url(
-                self.oidc_discovery_document['jwks_uri'])
-        return self._jwks
+    def notification_jwks(self) -> Optional[dict]:
+        return self.get_url(
+            self.notification_oidc_discovery_document['jwks_uri'])
+
+    @property
+    def personapi_discovery_document(self) -> Optional[dict]:
+        return self.get_url(self.person_api['discovery_url'])
+
+    @property
+    def management_api_discovery_document(self) -> Optional[dict]:
+        return self.get_url(self.management_api['discovery_url'])
 
     @property
     def secrets(self) -> dict:
