@@ -203,13 +203,20 @@ def process_auth0_user(user_id: str, operation: str) -> bool:
             if data.get('values') is None:
                 continue
             for value in data['values']:
-                if data['values'][value] is None:
-                    if publisher_name == 'ldap':
-                        access_groups.append(value)
-                    else:
-                        # prepend "publisher_" to all groups except those from
-                        # the ldap publisher
-                        access_groups.append('_'.join([publisher_name, value]))
+                if publisher_name == 'ldap':
+                    access_groups.append(value)
+                elif publisher_name == 'hris':
+                    # The hris section of access_information doesn't contain
+                    # groups, but instead contains employee_id, worker_type etc
+                    continue
+                elif publisher_name == 'access_provider':
+                    # The access_provider section of access_information doesn't
+                    # seem to contain groups (or anything)
+                    continue
+                else:
+                    # prepend "publisher_" to all groups except those from
+                    # the ldap publisher
+                    access_groups.append('_'.join([publisher_name, value]))
 
         logger.debug('Going to add groups to Auth0 app_metadata : {}'.format(
             access_groups))
