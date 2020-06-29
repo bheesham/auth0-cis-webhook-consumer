@@ -25,6 +25,7 @@ class Config:
         self.logger = logging.getLogger(__name__)
         self.domain_name = os.getenv('DOMAIN_NAME')
         self.environment_name = os.getenv('ENVIRONMENT_NAME')
+        self.user_whitelist = os.getenv('USER_WHITELIST').split(',') if os.getenv('USER_WHITELIST') else None
         self.notification_discovery_url = os.getenv(
             'NOTIFICATION_DISCOVERY_URL')
         self.notification_audience = os.getenv('NOTIFICATION_AUDIENCE')

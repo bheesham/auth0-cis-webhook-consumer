@@ -46,6 +46,9 @@ DEV_MANAGEMENT_DISCOVERY_URL	:= https://auth-dev.mozilla.auth0.com/.well-known/o
 PROD_MANAGEMENT_API_AUDIENCE	:= https://auth.mozilla.auth0.com/api/v2/
 DEV_MANAGEMENT_API_AUDIENCE		:= https://auth-dev.mozilla.auth0.com/api/v2/
 
+USER_WHITELIST	:= ad|Mozilla-LDAP|gene,ad|Mozilla-LDAP|FMerz
+# USER_WHITELIST	:= ""
+
 .PHONY: deploy-dev
 deploy-dev:
 	./deploy.sh \
@@ -58,6 +61,7 @@ deploy-dev:
 		 	DomainNameZone=$(DEV_DOMAIN_ZONE) \
 		 	CertificateArn=$(DEV_CERT_ARN) \
 			EnvironmentName=$(DEV_ENVIRONMENT_NAME) \
+			UserWhitelist=$(USER_WHITELIST) \
 			NotificationDiscoveryUrl=$(PROD_NOTIFICATION_DISCOVERY_URL) \
 			NotificationAudience=$(DEV_NOTIFICATION_AUDIENCE) \
 			PersonAPIDiscoveryUrl=$(PROD_PERSONAPI_DISCOVERY_URL) \
@@ -80,6 +84,7 @@ deploy:
 		 	DomainNameZone=$(PROD_DOMAIN_ZONE) \
 		 	CertificateArn=$(PROD_CERT_ARN) \
 			EnvironmentName=$(PROD_ENVIRONMENT_NAME) \
+			UserWhitelist=$(USER_WHITELIST) \
 			NotificationDiscoveryUrl=$(PROD_NOTIFICATION_DISCOVERY_URL) \
 			NotificationAudience=$(PROD_NOTIFICATION_AUDIENCE) \
 			PersonAPIDiscoveryUrl=$(PROD_PERSONAPI_DISCOVERY_URL) \

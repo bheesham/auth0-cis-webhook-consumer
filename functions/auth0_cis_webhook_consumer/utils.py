@@ -229,6 +229,16 @@ def process_auth0_user(user_id: str, operation: str) -> bool:
         logger.error('Unknown operation {}'.format(operation))
         return False
 
+    if CONFIG.user_whitelist is not None:
+        if user_id in CONFIG.user_whitelist:
+            logger.info(
+                'Performing Auth0 update on {} as the user is in the '
+                'whitelist'.format(user_id))
+        else:
+            logger.debug(
+                'Skipping Auth0 update on {} as the user is not in the '
+                'whitelist'.format(user_id))
+            return True
     # https://auth0.com/docs/api/management/v2/#!/Users/patch_users_by_id
     response = requests.patch(
         url=url,

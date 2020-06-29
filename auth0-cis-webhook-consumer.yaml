@@ -14,6 +14,7 @@ Metadata:
         default: Configuration
       Parameters:
         - EnvironmentName
+        - UserWhitelist
         - NotificationDiscoveryUrl
         - NotificationAudience
         - PersonAPIDiscoveryUrl
@@ -31,6 +32,8 @@ Metadata:
         default: AWS ACM Certificate ARN for the Custom DNS Domain Name
       EnvironmentName:
         default: The name of the environment which is used in AWS SSM Parameter Store paths
+      UserWhitelist:
+        default: Comma delimited list of user_id values that should be the only users modified in Auth0
       NotificationDiscoveryUrl:
         default: The discovery URL for the environment used by the CIS Webhook notifier
       NotificationAudience:
@@ -63,6 +66,9 @@ Parameters:
   EnvironmentName:
     Type: String
     Description: The name of the environment which is used in AWS SSM Parameter Store paths
+  UserWhitelist:
+    Type: CommaDelimitedList
+    Description: Comma delimited list of user_id values that should be the only users modified in Auth0
   NotificationDiscoveryUrl:
     Type: String
     Description: The discovery URL for the environment used by the CIS Webhook notifier
@@ -143,6 +149,7 @@ Resources:
           LOG_LEVEL: DEBUG
           DOMAIN_NAME: !Ref CustomDomainName  # What if a domain name isn't provided?
           ENVIRONMENT_NAME: !Ref EnvironmentName
+          USER_WHITELIST: !Join [ ',', !Ref UserWhitelist ]
           NOTIFICATION_DISCOVERY_URL: !Ref NotificationDiscoveryUrl
           NOTIFICATION_AUDIENCE: !Ref NotificationAudience
           PERSON_API_DISCOVERY_URL: !Ref PersonAPIDiscoveryUrl
