@@ -1,6 +1,7 @@
 import json
 import logging
 import traceback
+import os
 
 from .config import Config
 
@@ -18,8 +19,8 @@ logging.getLogger().handlers[0].setFormatter(formatter)
 logging.getLogger('boto3').propagate = False
 logging.getLogger('botocore').propagate = False
 logging.getLogger('urllib3').propagate = False
+logging.getLogger().setLevel(os.getenv('LOG_LEVEL', 'INFO'))
 CONFIG = Config()
-logging.getLogger().setLevel(CONFIG.log_level)
 
 
 def process_api_call(
@@ -84,7 +85,6 @@ def lambda_handler(event: dict, context: dict) -> dict:
     :param context: Lambda context about the invocation and environment
     :return: An AWS API Gateway output dictionary for proxy mode
     """
-    logger.debug('event is {}'.format(event))
     if event.get('resource') == '/{proxy+}':
         try:
             headers = (

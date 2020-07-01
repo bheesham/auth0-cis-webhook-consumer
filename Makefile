@@ -1,8 +1,6 @@
 API_STACK_NAME	:= auth0-cis-webhook-consumer
 CODE_STORAGE_S3_PREFIX := auth0-cis-webhook-consumer
-PROD_LAMBDA_CODE_STORAGE_S3_BUCKET_NAME := public.us-west-2.iam.mozilla.com
-DEV_LAMBDA_CODE_STORAGE_S3_BUCKET_NAME  := public.us-west-2.iam.mozilla.com
-TEST_LAMBDA_CODE_STORAGE_S3_BUCKET_NAME  := public.us-west-2.iam.mozilla.com
+LAMBDA_CODE_STORAGE_S3_BUCKET_NAME := public.us-west-2.iam.mozilla.com
 PROD_DOMAIN_NAME	:= auth0-cis-webhook-consumer.sso.mozilla.com
 DEV_DOMAIN_NAME		:= auth0-cis-webhook-consumer.dev.sso.allizom.org
 TEST_DOMAIN_NAME	:= auth0-cis-webhook-consumer.test.sso.allizom.org
@@ -46,7 +44,7 @@ DEV_MANAGEMENT_DISCOVERY_URL	:= https://auth-dev.mozilla.auth0.com/.well-known/o
 PROD_MANAGEMENT_API_AUDIENCE	:= https://auth.mozilla.auth0.com/api/v2/
 DEV_MANAGEMENT_API_AUDIENCE		:= https://auth-dev.mozilla.auth0.com/api/v2/
 
-USER_WHITELIST	:= ad|Mozilla-LDAP|gene,ad|Mozilla-LDAP|FMerz
+USER_WHITELIST	:= ad|Mozilla-LDAP|gene,ad|Mozilla-LDAP|FMerz,ad|Mozilla-LDAP-Dev|gene,ad|Mozilla-LDAP-Dev|FMerz,ad|Mozilla-LDAP|hcondei,ad|Mozilla-LDAP-Dev|hcondei
 # USER_WHITELIST	:= ""
 
 .PHONY: deploy-dev
@@ -54,7 +52,7 @@ deploy-dev:
 	./deploy.sh \
 		$(ACCOUNT_ID) \
 		 auth0-cis-webhook-consumer.yaml \
-		 $(DEV_LAMBDA_CODE_STORAGE_S3_BUCKET_NAME) \
+		 $(LAMBDA_CODE_STORAGE_S3_BUCKET_NAME) \
 		 $(API_STACK_NAME)-$(DEV_ENVIRONMENT_NAME) \
 		 $(CODE_STORAGE_S3_PREFIX) \
 		 "CustomDomainName=$(DEV_DOMAIN_NAME) \
@@ -72,12 +70,34 @@ deploy-dev:
 			ManagementAPIDiscoveryUrl=$(DEV_MANAGEMENT_DISCOVERY_URL)" \
 		 Auth0CISWebHookConsumerUrl
 
+deploy-test:
+	./deploy.sh \
+		$(ACCOUNT_ID) \
+		 auth0-cis-webhook-consumer.yaml \
+		 $(LAMBDA_CODE_STORAGE_S3_BUCKET_NAME) \
+		 $(API_STACK_NAME)-$(TEST_ENVIRONMENT_NAME) \
+		 $(CODE_STORAGE_S3_PREFIX) \
+		 "CustomDomainName=$(TEST_DOMAIN_NAME) \
+		 	DomainNameZone=$(TEST_DOMAIN_ZONE) \
+		 	CertificateArn=$(TEST_CERT_ARN) \
+			EnvironmentName=$(TEST_ENVIRONMENT_NAME) \
+			UserWhitelist=$(USER_WHITELIST) \
+			NotificationDiscoveryUrl=$(PROD_NOTIFICATION_DISCOVERY_URL) \
+			NotificationAudience=$(TEST_NOTIFICATION_AUDIENCE) \
+			PersonAPIDiscoveryUrl=$(PROD_PERSONAPI_DISCOVERY_URL) \
+			PersonAPIClientID=$(PROD_PERSONAPI_CLIENT_ID) \
+			PersonAPIAudience=$(TEST_PERSONAPI_AUDIENCE) \
+			ManagementAPIClientID=$(DEV_MANAGEMENT_API_CLIENT_ID) \
+			ManagementAPIAudience=$(DEV_MANAGEMENT_API_AUDIENCE) \
+			ManagementAPIDiscoveryUrl=$(DEV_MANAGEMENT_DISCOVERY_URL)" \
+		 Auth0CISWebHookConsumerUrl
+
 .PHONY: deploy
 deploy:
 	./deploy.sh \
 		$(ACCOUNT_ID) \
 		 auth0-cis-webhook-consumer.yaml \
-		 $(PROD_LAMBDA_CODE_STORAGE_S3_BUCKET_NAME) \
+		 $(LAMBDA_CODE_STORAGE_S3_BUCKET_NAME) \
 		 $(API_STACK_NAME)-$(PROD_ENVIRONMENT_NAME) \
 		 $(CODE_STORAGE_S3_PREFIX) \
 		 "CustomDomainName=$(PROD_DOMAIN_NAME) \
