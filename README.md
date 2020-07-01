@@ -196,12 +196,12 @@ graph TD
 ```mermaid
 graph TD
   hook.dev.sso.mozilla.com -->|prod Auth0 token| auth0-cis-webhook-consumer.dev.sso.allizom.org
-  auth0-cis-webhook-consumer.dev.sso.allizom.org-->|prod Auth0 token| person.api.sso.mozilla.com
+  auth0-cis-webhook-consumer.dev.sso.allizom.org-->|prod Auth0 token| person.api.dev.sso.mozilla.com
   auth0-cis-webhook-consumer.dev.sso.allizom.org-->|dev Auth0 token| auth-dev.mozilla.auth0.com/api/v2/
   linkStyle 2 stroke:#ff3,stroke-width:4px,color:red;
   style hook.dev.sso.mozilla.com fill:#cfd
   style auth0-cis-webhook-consumer.dev.sso.allizom.org fill:#cfd
-  style person.api.sso.mozilla.com fill:#ccf
+  style person.api.dev.sso.mozilla.com fill:#cfd
   style auth-dev.mozilla.auth0.com/api/v2/ fill:#cfd
 ```
 

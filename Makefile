@@ -1,4 +1,4 @@
-API_STACK_NAME	:= auth0-cis-webhook-consumer
+API_STACK_NAME	:= a0-cis-hook-consumer
 CODE_STORAGE_S3_PREFIX := auth0-cis-webhook-consumer
 LAMBDA_CODE_STORAGE_S3_BUCKET_NAME := public.us-west-2.iam.mozilla.com
 PROD_DOMAIN_NAME	:= auth0-cis-webhook-consumer.sso.mozilla.com
@@ -64,7 +64,7 @@ deploy-dev:
 			NotificationAudience=$(DEV_NOTIFICATION_AUDIENCE) \
 			PersonAPIDiscoveryUrl=$(PROD_PERSONAPI_DISCOVERY_URL) \
 			PersonAPIClientID=$(PROD_PERSONAPI_CLIENT_ID) \
-			PersonAPIAudience=$(PROD_PERSONAPI_AUDIENCE) \
+			PersonAPIAudience=$(DEV_PERSONAPI_AUDIENCE) \
 			ManagementAPIClientID=$(DEV_MANAGEMENT_API_CLIENT_ID) \
 			ManagementAPIAudience=$(DEV_MANAGEMENT_API_AUDIENCE) \
 			ManagementAPIDiscoveryUrl=$(DEV_MANAGEMENT_DISCOVERY_URL)" \
