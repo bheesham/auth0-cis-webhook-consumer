@@ -5,6 +5,8 @@ from typing import Optional
 import requests
 import boto3
 
+logger = logging.getLogger(__name__)
+
 
 def get_paginated_results(product, action, key, credentials=None, args=None):
     args = {} if args is None else args
@@ -21,11 +23,12 @@ class Config:
         self._notification_jwks = None
         self._secrets = None
         self._fetched_urls = {}
-        self.log_level = os.getenv('LOG_LEVEL', 'INFO')
-        self.logger = logging.getLogger(__name__)
+        self.authorization = {}
         self.domain_name = os.getenv('DOMAIN_NAME')
         self.environment_name = os.getenv('ENVIRONMENT_NAME')
-        self.user_whitelist = os.getenv('USER_WHITELIST').split(',') if os.getenv('USER_WHITELIST') else None
+        self.user_whitelist = (
+            os.getenv('USER_WHITELIST').split(',')
+            if os.getenv('USER_WHITELIST') else None)
         self.notification_discovery_url = os.getenv(
             'NOTIFICATION_DISCOVERY_URL')
         self.notification_audience = os.getenv('NOTIFICATION_AUDIENCE')
@@ -45,13 +48,13 @@ class Config:
 
     def get_url(self, url):
         if self._fetched_urls.get(url) is None:
-            self.logger.debug('Fetching URL : {}'.format(url))
+            logger.debug('Fetching URL : {}'.format(url))
             response = requests.get(url)
             if response.ok:
                 self._fetched_urls[url] = response.json()
                 return self._fetched_urls[url]
             else:
-                self.logger.error('Unable to fetch {} : {} {}'.format(
+                logger.error('Unable to fetch {} : {} {}'.format(
                     url,
                     response.status_code,
                     response.text
@@ -90,7 +93,7 @@ class Config:
             args = {'Path': path[:-1], 'WithDecryption': True}
             parameters = get_paginated_results(
                 'ssm', 'get_parameters_by_path', 'Parameters', args=args)
-            self.logger.debug('Fetched {} parameters from AWS SSM'.format(
+            logger.debug('Fetched {} parameters from AWS SSM'.format(
                 len(parameters)))
             self._secrets = {}
             for parameter in parameters:

@@ -1,5 +1,5 @@
 import logging
-import json
+import time
 
 import requests
 import urllib.parse
@@ -34,11 +34,6 @@ def verify_token(authorization: str, jwks: dict, issuer: str) -> bool:
         return False
 
     token = authorization.split()[1]
-    logger.debug('Verifying token against issuer {} and audience {}'.format(
-        issuer,
-        CONFIG.notification_audience
-    ))
-
     try:
         id_token = jwt.decode(
             token=token,
@@ -47,24 +42,35 @@ def verify_token(authorization: str, jwks: dict, issuer: str) -> bool:
             issuer=issuer
         )
     except exceptions.JOSEError as e:
-        logger.error("Invalid bearer token : {} : {}".format(token, e))
+        logger.error(
+            "Invalid bearer token (issuer : {} audience : {}) : {} : "
+            "{}".format(issuer, CONFIG.notification_audience, token, e))
         return False
-    logger.debug("Valid bearer token : {}".format(id_token))
+    logger.debug(
+        "Bearer token verified successfully for issuer {} and audience "
+        "{}".format(issuer, CONFIG.notification_audience))
     return True
 
 
 def get_authorization(
-        token_endpoint: str,
+        discovery_document: dict,
         client_details: dict) -> Optional[str]:
     """Call a token endpoint to provision an access token and return it
 
-    :param token_endpoint: The URL of the Auth0 token endpoint
+    :param discovery_document: Discovery document containing the token endpoint
     :param client_details: A dictionary containing
                client_id: The OIDC client_id
                client_secret: The associated OIDC client_secret
                audience: The OIDC audience to provision the access token for
     :return: An access token string
     """
+    key = '-'.join([discovery_document['issuer'], client_details['audience']])
+    if (key in CONFIG.authorization
+            and CONFIG.authorization[key]['expiry'] - time.time()) > 300:
+        return CONFIG.authorization[key]['token']
+    # TODO : Now that we're caching access tokens in AWS Lambda global cache
+    # we may want to go further and persist the token into some data store
+    # as it's valid for 24 hours
     if client_details.get('client_secret') is None:
         logger.error('Unable to fetch user profile without client_secret')
         return None
@@ -74,24 +80,35 @@ def get_authorization(
         'audience': client_details['audience'],
         'grant_type': 'client_credentials'
     }
-    # TODO : We could get the access token in app.py maybe and save it as a
-    # global so it's available for future instantiations without reprovisioning
-    # a token or maybe we persist it somewhere based on it's "expires_in" value
     response = requests.post(
-        url=token_endpoint,
+        url=discovery_document['token_endpoint'],
         json=payload
     )
     if not response.ok:
         logger.error(
             'Unable to fetch access token from {} with payload {} : {} '
             '{}'.format(
-                token_endpoint, payload, response.status_code, response.text))
+                discovery_document['token_endpoint'],
+                payload, response.status_code, response.text))
         return None
     access_token = response.json().get('access_token')
     token_type = response.json().get('token_type')
-    logger.debug('Access token fetched of type {} from {}'.format(
-        token_type, token_endpoint))
-    return "{} {}".format(token_type, access_token)
+
+    try:
+        id_token = jwt.get_unverified_claims(token=access_token)
+    except exceptions.JOSEError as e:
+        logger.error("Unable to parse token : {} : {}".format(access_token, e))
+        return None
+    logger.debug('Access token fetched of type {} from {} with audience '
+                 '{}'.format(token_type,
+                             discovery_document['token_endpoint'],
+                             client_details['audience']))
+    key = '-'.join([id_token['iss'], id_token['aud']])
+    if key not in CONFIG.authorization:
+        CONFIG.authorization[key] = {}
+    CONFIG.authorization[key]['expiry'] = id_token['exp']
+    CONFIG.authorization[key]['token'] = access_token
+    return access_token
 
 
 def get_user_profile(user_id: str) -> Optional[dict]:
@@ -101,26 +118,25 @@ def get_user_profile(user_id: str) -> Optional[dict]:
     :return:
     """
     person_api_authorization = get_authorization(
-        CONFIG.personapi_discovery_document['token_endpoint'],
+        CONFIG.personapi_discovery_document,
         CONFIG.person_api)
     if person_api_authorization is None:
         return None
-    headers = {'authorization': person_api_authorization}
+    headers = {'authorization': 'Bearer {}'.format(person_api_authorization)}
     url = 'https://person.{audience}/v2/user/user_id/{escaped_user_id}'.format(
         audience=CONFIG.person_api['audience'],
         escaped_user_id=urllib.parse.quote_plus(user_id)
     )
-    logger.debug('Querying URL {} with headers {}'.format(url, headers))
     response = requests.get(url=url, headers=headers)
     if response.ok:
         profile = response.json()
-        logger.debug('User profile fetched from {} : {}'.format(
-            url,
-            json.dumps(filter_profile(profile))))
+        logger.debug('User profile successfully fetched from {}'.format(
+            url))
         return profile
     else:
-        logger.error('Unable to fetch user profile for {} : {} {}'.format(
-            user_id, response.status_code, response.text))
+        logger.error(
+            'Unable to fetch user profile for {} from {} : {} {}'.format(
+                user_id, url, response.status_code, response.text))
         return None
 
 
@@ -137,10 +153,9 @@ def hack_user_id(user_id):
     """
     prod_ldap_user_id_prefix = 'ad|Mozilla-LDAP|'
     dev_ldap_user_id_prefix = 'ad|Mozilla-LDAP-Dev|'
-    logger.debug(
-        f"{user_id=} {CONFIG.management_api_discovery_document['issuer']=}")
-    if (user_id.startswith(prod_ldap_user_id_prefix)
-            and CONFIG.management_api_discovery_document['issuer'] == 'https://auth-dev.mozilla.auth0.com/'):
+    issuer = CONFIG.management_api_discovery_document['issuer']
+    dev_issuer = 'https://auth-dev.mozilla.auth0.com/'
+    if user_id.startswith(prod_ldap_user_id_prefix) and issuer == dev_issuer:
         # Hack to translate LDAP user IDs fetched from production and added to
         # Auth0 auth-dev
         result = "{}{}".format(
@@ -175,11 +190,11 @@ def process_auth0_user(user_id: str, operation: str) -> bool:
     if CONFIG.management_api_discovery_document is None:
         return False
     auth0_management_api_authorization = get_authorization(
-        CONFIG.management_api_discovery_document['token_endpoint'],
+        CONFIG.management_api_discovery_document,
         CONFIG.management_api)
     if auth0_management_api_authorization is None:
         return False
-    headers = {'authorization': auth0_management_api_authorization}
+    headers = {'authorization': f'Bearer {auth0_management_api_authorization}'}
     url = '{issuer}api/v2/users/{escaped_user_id}'.format(
         issuer=CONFIG.management_api_discovery_document['issuer'],
         escaped_user_id=urllib.parse.quote_plus(hack_user_id(user_id))
@@ -192,7 +207,6 @@ def process_auth0_user(user_id: str, operation: str) -> bool:
                 'existsInCIS': False
             }
         }
-        logger.info('Marking {} as existsInCIS False'.format(user_id))
     elif operation == "update":
         profile = get_user_profile(user_id)
         if profile is None:
@@ -218,8 +232,6 @@ def process_auth0_user(user_id: str, operation: str) -> bool:
                     # the ldap publisher
                     access_groups.append('_'.join([publisher_name, value]))
 
-        logger.debug('Going to add groups to Auth0 app_metadata : {}'.format(
-            access_groups))
         payload = {
             'app_metadata': {
                 'groups': access_groups
@@ -251,10 +263,6 @@ def process_auth0_user(user_id: str, operation: str) -> bool:
                 payload,
                 response.text))
     else:
-        logger.debug(
-            'Successfully updated Auth0 management API for {} with response '
-            '{}'.format(
-                url,
-                response.text
-            ))
+        logger.info('Successfully updated Auth0 user {} : {}'.format(
+            user_id, payload))
     return response.ok

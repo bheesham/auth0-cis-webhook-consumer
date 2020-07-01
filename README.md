@@ -17,7 +17,7 @@ for me to get this up and running.
 
 # Architecture
 
-* `auth0-cis-webhook-consumer.dev.sso.allizom.org.` DNS record in `mozilla-iam`
+* `auth0-cis-webhook-consumer.test.sso.allizom.org.` DNS record in `mozilla-iam`
   AWS account is an alias to AWS API Gateway
 * API Gateway proxies all request to AWS Lambda function
 * Lambda function calls appropriate Python function based on the URL path in the
@@ -152,23 +152,24 @@ make deploy-dev
 
 ```
 curl -d '{"foo": "bar"}' -i \
-  https://auth0-cis-webhook-consumer.dev.sso.allizom.org/test
+  https://auth0-cis-webhook-consumer.test.sso.allizom.org/test
 curl -d '{"foo": "bar"}' -i \
-  https://auth0-cis-webhook-consumer.dev.sso.allizom.org/error
+  https://auth0-cis-webhook-consumer.test.sso.allizom.org/error
 curl -d '{"foo": "bar"}' -i \
-  https://auth0-cis-webhook-consumer.dev.sso.allizom.org/404
+  https://auth0-cis-webhook-consumer.test.sso.allizom.org/404
 ```
 
 ### Getting a Bearer Token to Impersonate CIS Webhook Publisher
 
 * Copy paste the `curl` command to provision a token from the API in dev or prod
-  * https://manage.mozilla.auth0.com/dashboard/pi/auth/apis/5c80d6ddaf6977386c57d06f/test
+  * [`hook.dev.sso.allizom.org`](https://manage.mozilla.auth0.com/dashboard/pi/auth/apis/5c80d6ddaf6977386c57d06f/test)
+  * [`hook.test.sso.allizom.org`](https://manage.mozilla.auth0.com/dashboard/pi/auth/apis/5c9c0950c32ba0449dd355c4/test)
 * Take the `access_token` value and use it in the `${TOKEN}` section of this
 
 ```
 curl -H  "Authorization: Bearer ${TOKEN}" \
   -d '{"operation": "update", "id": "ad|Mozilla-LDAP|dinomcvouch"}' -i \
-  https://auth0-cis-webhook-consumer.dev.sso.allizom.org/post
+  https://auth0-cis-webhook-consumer.test.sso.allizom.org/post
 ```
 
 # Diagrams
@@ -211,12 +212,12 @@ graph TD
 ```mermaid
 graph TD
   hook.test.sso.mozilla.com -->|prod Auth0 token| auth0-cis-webhook-consumer.test.sso.allizom.org
-  auth0-cis-webhook-consumer.test.sso.allizom.org -->|prod Auth0 token| person.api.sso.mozilla.com
+  auth0-cis-webhook-consumer.test.sso.allizom.org -->|prod Auth0 token| person.api.test.sso.mozilla.com
   auth0-cis-webhook-consumer.test.sso.allizom.org -->|dev Auth0 token| auth-dev.mozilla.auth0.com/api/v2/
   linkStyle 2 stroke:#ff3,stroke-width:4px,color:red;
   style hook.test.sso.mozilla.com fill:#fcf
   style auth0-cis-webhook-consumer.test.sso.allizom.org fill:#fcf
-  style person.api.sso.mozilla.com fill:#ccf
+  style person.api.test.sso.mozilla.com fill:#fcf
   style auth-dev.mozilla.auth0.com/api/v2/ fill:#cfd
 ```
 
