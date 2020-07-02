@@ -102,7 +102,7 @@ Rules:
       - Assert: !And [ !Not [ !Equals [ !Ref 'CustomDomainName', '' ] ], !Not [ !Equals [ !Ref 'DomainNameZone', '' ] ], !Not [ !Equals [ !Ref 'CertificateArn', '' ] ] ]
         AssertDescription: If you set a CustomDomainName, DomainNameZone or CertificateArn you must provide all values
 Resources:
-  Auth0CISWebHookConsumerFunctionRole:
+  Auth0CISWebHookConsumerAsyncFunctionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -139,7 +139,28 @@ Resources:
                   - ssm:GetParameter
                   - ssm:GetParameterHistory
                 Resource: !Join [ '', [ 'arn:aws:ssm:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':parameter/iam/cis/', !Ref EnvironmentName, '/auth0_cis_webhook_consumer/*' ] ]
-  Auth0CISWebHookConsumerFunction:
+  Auth0CISWebHookConsumerFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: AllowLambdaInvoke
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt Auth0CISWebHookConsumerAsyncFunction.Arn
+  Auth0CISWebHookConsumerAsyncFunction:
     Type: AWS::Lambda::Function
     Properties:
       Description: Auth0 CIS WebHook Consumer
@@ -160,7 +181,7 @@ Resources:
           MANAGEMENT_API_DISCOVERY_URL: !Ref ManagementAPIDiscoveryUrl
       Handler: auth0_cis_webhook_consumer.app.lambda_handler
       Runtime: python3.8
-      Role: !GetAtt Auth0CISWebHookConsumerFunctionRole.Arn
+      Role: !GetAtt Auth0CISWebHookConsumerAsyncFunctionRole.Arn
       Tags:
         - Key: application
           Value: auth0-cis-webhook-consumer
@@ -169,13 +190,45 @@ Resources:
         - Key: source
           Value: https://github.com/mozilla-iam/auth0-cis-webhook-consumer/
       Timeout: 900
-  Auth0CISWebHookConsumerFunctionLogGroup:
+  Auth0CISWebHookConsumerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Auth0 CIS WebHook Consumer Launcher
+      Code:
+        ZipFile: |
+          import boto3, os, json
+          def lambda_handler(event: dict, context: dict) -> dict:
+            client = boto3.client('lambda')
+            response = client.invoke(
+                FunctionName=os.getenv('FUNCTION_NAME'),
+                InvocationType='Event',
+                LogType='None',
+                Payload=json.dumps(event).encode('utf-8'))
+            return {
+              'headers': {'Content-Type': 'text/html'},
+              'statusCode': response['StatusCode'],
+              'body': 'Webhook received'}
+      Environment:
+        Variables:
+          FUNCTION_NAME: !Ref Auth0CISWebHookConsumerAsyncFunction
+      Handler: index.lambda_handler
+      Runtime: python3.7  # AWS Lambda doesn't support inline code for python3.8
+      Role: !GetAtt Auth0CISWebHookConsumerFunctionRole.Arn
+      Tags:
+        - Key: application
+          Value: auth0-cis-webhook-consumer
+        - Key: stack
+          Value: !Ref AWS::StackName
+        - Key: source
+          Value: https://github.com/mozilla-iam/auth0-cis-webhook-consumer/
+      Timeout: 15
+  Auth0CISWebHookConsumerAsyncFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       # Let's hope that the Lambda function doesn't execute before this LogGroup
       # resource is created, creating the LogGroup with no expiration and
       # preventing this resource from creating
-      LogGroupName: !Join [ '/', ['/aws/lambda', !Ref 'Auth0CISWebHookConsumerFunction' ] ]
+      LogGroupName: !Join [ '/', ['/aws/lambda', !Ref 'Auth0CISWebHookConsumerAsyncFunction' ] ]
       RetentionInDays: 14
   Auth0CISWebHookConsumerDomainName:
     Type: AWS::ApiGateway::DomainName
@@ -303,6 +356,6 @@ Outputs:
   Auth0CISWebHookConsumerFunctionName:
     Description: The AWS Lambda function name
     Value: !Ref Auth0CISWebHookConsumerFunction
-  Auth0CISWebHookConsumerFunctionLogGroup:
+  Auth0CISWebHookConsumerAsyncFunctionLogGroup:
     Description: The AWS CloudWatch LogGroup path
-    Value: !Ref Auth0CISWebHookConsumerFunctionLogGroup
+    Value: !Ref Auth0CISWebHookConsumerAsyncFunctionLogGroup

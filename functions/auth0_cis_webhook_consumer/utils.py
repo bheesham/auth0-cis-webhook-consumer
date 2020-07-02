@@ -127,15 +127,15 @@ def get_user_profile(user_id: str) -> Optional[dict]:
         audience=CONFIG.person_api['audience'],
         escaped_user_id=urllib.parse.quote_plus(user_id)
     )
-    response = requests.get(url=url, headers=headers)
-    if response.ok:
+    response = requests.get(url=url, headers=headers, params={'active': 'Any'})
+    if response.ok and response.json().get('uuid', {}).get('value'):
         profile = response.json()
         logger.debug('User profile successfully fetched from {}'.format(
             url))
         return profile
     else:
         logger.error(
-            'Unable to fetch user profile for {} from {} : {} {}'.format(
+            'Unable to fetch valid user profile for {} from {} : {} {}'.format(
                 user_id, url, response.status_code, response.text))
         return None
 
