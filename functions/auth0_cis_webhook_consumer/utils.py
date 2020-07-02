@@ -127,7 +127,7 @@ def get_user_profile(user_id: str) -> Optional[dict]:
         audience=CONFIG.person_api['audience'],
         escaped_user_id=urllib.parse.quote_plus(user_id)
     )
-    response = requests.get(url=url, headers=headers)
+    response = requests.get(url=url, headers=headers, params={'active': 'Any'})
     if response.ok:
         profile = response.json()
         logger.debug('User profile successfully fetched from {}'.format(
