@@ -44,8 +44,8 @@ DEV_MANAGEMENT_DISCOVERY_URL	:= https://auth-dev.mozilla.auth0.com/.well-known/o
 PROD_MANAGEMENT_API_AUDIENCE	:= https://auth.mozilla.auth0.com/api/v2/
 DEV_MANAGEMENT_API_AUDIENCE		:= https://auth-dev.mozilla.auth0.com/api/v2/
 
-USER_WHITELIST	:= ad|Mozilla-LDAP|gene,ad|Mozilla-LDAP|FMerz,ad|Mozilla-LDAP-Dev|gene,ad|Mozilla-LDAP-Dev|FMerz,ad|Mozilla-LDAP|hcondei,ad|Mozilla-LDAP-Dev|hcondei
-# USER_WHITELIST	:= ""
+# USER_WHITELIST	:= ad|Mozilla-LDAP|gene,ad|Mozilla-LDAP|FMerz,ad|Mozilla-LDAP-Dev|gene,ad|Mozilla-LDAP-Dev|FMerz,ad|Mozilla-LDAP|hcondei,ad|Mozilla-LDAP-Dev|hcondei
+USER_WHITELIST	:= ""
 
 .PHONY: deploy-dev
 deploy-dev:
