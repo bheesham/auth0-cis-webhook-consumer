@@ -20,6 +20,39 @@ def filter_profile(item):
               if key not in ['metadata', 'signature']})
 
 
+def wait_for_ratelimit_reset(reset_time, get_remaining_time_in_millis):
+    """If there's enough execution time remaining before ratelimit resets,
+    sleep until then
+
+    :param reset_time: Seconds since the epoch at which point the ratelimit
+        resets
+    :param get_remaining_time_in_millis: Function that returns the amount of
+        time remaining to complete execution of the AWS Lambda function in
+        milliseconds
+    :return: True if we have enough time to sleep and we've slept, False if not
+    """
+    if reset_time is None:
+        reset_time = 0
+    reset_time = int(reset_time)
+    seconds_until_reset = max(reset_time - time.time(), 0)
+    if get_remaining_time_in_millis() > (seconds_until_reset + 30) * 1000:
+        # We have enough remaining time in execution to sleep
+        logger.debug(
+            'Sleeping for {} seconds until the ratelimit resets and more '
+            'calls are available.'.format(seconds_until_reset))
+        time.sleep(seconds_until_reset)
+        return True
+    else:
+        # We don't have enough time
+        logger.error(
+            'It will be {} seconds until the ratelimit resets and more calls '
+            'are available which exceeds the execution time available to this '
+            'AWS Lambda function of {} milliseconds.'.format(
+                seconds_until_reset,
+                get_remaining_time_in_millis()))
+        return False
+
+
 def verify_token(authorization: str, jwks: dict, issuer: str) -> bool:
     """Verify that bearer token is valid
 
@@ -167,7 +200,10 @@ def hack_user_id(user_id):
         return user_id
 
 
-def process_auth0_user(user_id: str, operation: str) -> bool:
+def process_auth0_user(
+        user_id: str,
+        operation: str,
+        get_remaining_time_in_millis: Callable[[], int]) -> bool:
     """Process the operation on the Auth0 user
 
     Requires Auth0 Management API scopes
@@ -176,6 +212,8 @@ def process_auth0_user(user_id: str, operation: str) -> bool:
 
     :param user_id: The user's user ID
     :param operation: The operation to perform, "create", "update", "delete"
+    :param get_remaining_time_in_millis: Function that returns how much time
+        remains to complete execution
     :return:
     """
     if operation == "create":
@@ -251,18 +289,45 @@ def process_auth0_user(user_id: str, operation: str) -> bool:
                 'Skipping Auth0 update on {} as the user is not in the '
                 'whitelist'.format(user_id))
             return True
-    # https://auth0.com/docs/api/management/v2/#!/Users/patch_users_by_id
-    response = requests.patch(
-        url=url,
-        json=payload,
-        headers=headers)
-    if not response.ok:
-        logger.error(
-            'Auth0 Management API profile update failed {} : {} : {}'.format(
-                url,
-                payload,
-                response.text))
-    else:
-        logger.info('Successfully updated Auth0 user {} : {}'.format(
-            user_id, payload))
-    return response.ok
+
+    update_can_succeed = True
+    global last_auth0_request
+    if 'last_auth0_request' in globals():
+        if last_auth0_request.get('X-RateLimit-Remaining') == 0:
+            # No remaining requests available, sleep until there are
+            if not wait_for_ratelimit_reset(
+                    last_auth0_request.get('X-RateLimit-Reset'),
+                    get_remaining_time_in_millis):
+                update_can_succeed = False
+
+    while update_can_succeed:
+        # https://auth0.com/docs/api/management/v2/#!/Users/patch_users_by_id
+        response = requests.patch(
+            url=url,
+            json=payload,
+            headers=headers)
+        last_auth0_request = response.headers
+        if response.status_code == 429:
+            update_can_succeed = wait_for_ratelimit_reset(
+                response.headers.get('X-RateLimit-Reset'),
+                get_remaining_time_in_millis)
+        else:
+            # We weren't ratelimited
+            if not response.ok:
+                logger.critical(
+                    'Auth0 Management API profile update failed {} : {} : '
+                    '{}'.format(
+                        url,
+                        payload,
+                        response.text))
+                return False
+            break
+    if not update_can_succeed:
+        logger.critical(
+            'Currently ratelimited by Auth0. As a result this update to '
+            'Auth0 can not be sent and will be lost. The user is {} and the '
+            'update is : {}'.format(user_id, payload))
+        return False
+    logger.info('Successfully updated Auth0 user {} : {}'.format(
+        user_id, payload))
+    return True

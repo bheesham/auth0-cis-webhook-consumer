@@ -58,7 +58,10 @@ def process_api_call(
             # https://github.com/mozilla-iam/cis/blob/73f21ab201b4f242512786dfc8e1707fccf7f3c5/python-modules/cis_notifications/cis_notifications/event.py#L44-L51
             operation = body.get('operation')
             if (user_id is not None and operation is not None
-                    and process_auth0_user(user_id, operation)):
+                    and process_auth0_user(
+                        user_id,
+                        operation,
+                        context.get_remaining_time_in_millis)):
                 return {
                     'headers': {'Content-Type': 'text/html'},
                     'statusCode': 200,
@@ -106,10 +109,15 @@ def lambda_handler(event: LambdaDict, context: LambdaContext) -> LambdaDict:
                 if event['headers'] is not None else {})
             cis_webhook_authorization = headers.get('authorization')
             body = json.loads(event['body'])
-            return process_api_call(event, cis_webhook_authorization, body)
+            return process_api_call(
+                event, context, cis_webhook_authorization, body)
         except json.decoder.JSONDecodeError:
             logger.error('Unable to parse POSTed body : {}'.format(
                 event['body']))
+            return {
+                'headers': {'Content-Type': 'text/html'},
+                'statusCode': 500,
+                'body': 'Error'}
         except Exception as e:
             logger.error(str(e))
             logger.error(traceback.format_exc())
