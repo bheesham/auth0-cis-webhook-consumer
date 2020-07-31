@@ -89,6 +89,17 @@ def lambda_handler(event: LambdaDict, context: LambdaContext) -> LambdaDict:
     :return: An AWS API Gateway output dictionary for proxy mode
     """
     if event.get('resource') == '/{proxy+}':
+        if event.get('httpMethod') != 'POST':
+            return {
+                'headers': {'Content-Type': 'text/html'},
+                'statusCode': 405,
+                'body': '405 Method Not Allowed'}
+        elif not event.get('body'):
+            logger.debug('Missing POST body')
+            return {
+                'headers': {'Content-Type': 'text/html'},
+                'statusCode': 400,
+                'body': 'Missing POST body'}
         try:
             headers = (
                 {x.lower(): event['headers'][x] for x in event['headers']}
