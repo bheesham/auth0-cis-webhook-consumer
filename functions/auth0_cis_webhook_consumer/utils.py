@@ -4,7 +4,7 @@ import time
 import requests
 import urllib.parse
 from jose import jwt, exceptions
-from typing import Optional
+from typing import Optional, Callable
 
 from .config import Config
 

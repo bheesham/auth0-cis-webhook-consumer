@@ -9,6 +9,7 @@ from .utils import (
     verify_token,
     process_auth0_user
 )
+from .lambda_types import LambdaDict, LambdaContext
 
 logger = logging.getLogger()
 if len(logging.getLogger().handlers) == 0:
@@ -24,12 +25,14 @@ CONFIG = Config()
 
 
 def process_api_call(
-        event: dict,
+        event: LambdaDict,
+        context: LambdaContext,
         cis_webhook_authorization: str,
         body: dict) -> dict:
     """Process an API Gateway call depending on the URL path called
 
     :param event: The API Gateway request event
+    :param context: AWS Lambda context object
     :param cis_webhook_authorization: A bearer token from the CIS webhook
            service
     :param body: The parsed body that was POSTed to the API Gateway
@@ -78,7 +81,7 @@ def process_api_call(
             'body': "That path wasn't found"}
 
 
-def lambda_handler(event: dict, context: dict) -> dict:
+def lambda_handler(event: LambdaDict, context: LambdaContext) -> LambdaDict:
     """Handler for all API Gateway requests
 
     :param event: AWS API Gateway input fields for AWS Lambda
