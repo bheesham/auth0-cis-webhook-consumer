@@ -229,7 +229,7 @@ Resources:
       # resource is created, creating the LogGroup with no expiration and
       # preventing this resource from creating
       LogGroupName: !Join [ '/', ['/aws/lambda', !Ref 'Auth0CISWebHookConsumerAsyncFunction' ] ]
-      RetentionInDays: 14
+      RetentionInDays: 30
   Auth0CISWebHookConsumerDomainName:
     Type: AWS::ApiGateway::DomainName
     Condition: UseCustomDomainName

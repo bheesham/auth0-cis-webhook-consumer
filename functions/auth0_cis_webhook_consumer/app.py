@@ -9,6 +9,7 @@ from .utils import (
     verify_token,
     process_auth0_user
 )
+from .lambda_types import LambdaDict, LambdaContext
 
 logger = logging.getLogger()
 if len(logging.getLogger().handlers) == 0:
@@ -24,12 +25,14 @@ CONFIG = Config()
 
 
 def process_api_call(
-        event: dict,
+        event: LambdaDict,
+        context: LambdaContext,
         cis_webhook_authorization: str,
         body: dict) -> dict:
     """Process an API Gateway call depending on the URL path called
 
     :param event: The API Gateway request event
+    :param context: AWS Lambda context object
     :param cis_webhook_authorization: A bearer token from the CIS webhook
            service
     :param body: The parsed body that was POSTed to the API Gateway
@@ -55,7 +58,10 @@ def process_api_call(
             # https://github.com/mozilla-iam/cis/blob/73f21ab201b4f242512786dfc8e1707fccf7f3c5/python-modules/cis_notifications/cis_notifications/event.py#L44-L51
             operation = body.get('operation')
             if (user_id is not None and operation is not None
-                    and process_auth0_user(user_id, operation)):
+                    and process_auth0_user(
+                        user_id,
+                        operation,
+                        context.get_remaining_time_in_millis)):
                 return {
                     'headers': {'Content-Type': 'text/html'},
                     'statusCode': 200,
@@ -78,7 +84,7 @@ def process_api_call(
             'body': "That path wasn't found"}
 
 
-def lambda_handler(event: dict, context: dict) -> dict:
+def lambda_handler(event: LambdaDict, context: LambdaContext) -> LambdaDict:
     """Handler for all API Gateway requests
 
     :param event: AWS API Gateway input fields for AWS Lambda
@@ -86,16 +92,32 @@ def lambda_handler(event: dict, context: dict) -> dict:
     :return: An AWS API Gateway output dictionary for proxy mode
     """
     if event.get('resource') == '/{proxy+}':
+        if event.get('httpMethod') != 'POST':
+            return {
+                'headers': {'Content-Type': 'text/html'},
+                'statusCode': 405,
+                'body': '405 Method Not Allowed'}
+        elif not event.get('body'):
+            logger.debug('Missing POST body')
+            return {
+                'headers': {'Content-Type': 'text/html'},
+                'statusCode': 400,
+                'body': 'Missing POST body'}
         try:
             headers = (
                 {x.lower(): event['headers'][x] for x in event['headers']}
                 if event['headers'] is not None else {})
             cis_webhook_authorization = headers.get('authorization')
             body = json.loads(event['body'])
-            return process_api_call(event, cis_webhook_authorization, body)
+            return process_api_call(
+                event, context, cis_webhook_authorization, body)
         except json.decoder.JSONDecodeError:
             logger.error('Unable to parse POSTed body : {}'.format(
                 event['body']))
+            return {
+                'headers': {'Content-Type': 'text/html'},
+                'statusCode': 500,
+                'body': 'Error'}
         except Exception as e:
             logger.error(str(e))
             logger.error(traceback.format_exc())
