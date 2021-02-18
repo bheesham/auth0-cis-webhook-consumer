@@ -161,10 +161,12 @@ curl -d '{"foo": "bar"}' -i \
 
 ### Getting a Bearer Token to Impersonate CIS Webhook Publisher
 
-* Copy paste the `curl` command to provision a token from the API in dev or prod
-  * [`hook.dev.sso.allizom.org`](https://manage.mozilla.auth0.com/dashboard/pi/auth/apis/5c80d6ddaf6977386c57d06f/test)
-  * [`hook.test.sso.allizom.org`](https://manage.mozilla.auth0.com/dashboard/pi/auth/apis/5c9c0950c32ba0449dd355c4/test)
-  * [`hook.sso.mozilla.com`](https://manage.mozilla.auth0.com/dashboard/pi/auth/apis/5c9c0965c32ba0449dd355e4/test)
+* Copy paste the `curl` command to provision a token from the API in dev or 
+  prod. To fetch the curl command for provisioning a token use one of these 
+  links.
+  * [`hook.dev.sso.allizom.org` client](https://manage.mozilla.auth0.com/dashboard/pi/auth/apis/5c80d6ddaf6977386c57d06f/test)
+  * [`hook.test.sso.allizom.org` client](https://manage.mozilla.auth0.com/dashboard/pi/auth/apis/5c9c0950c32ba0449dd355c4/test)
+  * [`hook.sso.mozilla.com` client](https://manage.mozilla.auth0.com/dashboard/pi/auth/apis/5c9c0965c32ba0449dd355e4/test)
 * Take the `access_token` value and use it in the `${TOKEN}` section of this
 
 ```
