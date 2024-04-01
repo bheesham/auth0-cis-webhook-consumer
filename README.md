@@ -148,6 +148,18 @@ make deploy-dev
 
 # Testing
 
+## Unit Testing
+To run unit tests enter the command
+```
+pytest
+```
+
+### Using Moto to Mock AWS Services
+AWS Secrets are mocked using the [moto](https://docs.getmoto.org/en/latest/index.html) library.
+
+Moto requires fake AWS credentials be established before the test. All tests should be annotated with @mock_aws.
+
+
 ## Query
 
 ```
