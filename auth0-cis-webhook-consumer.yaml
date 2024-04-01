@@ -2,27 +2,27 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Auth0 CIS WebHook Consumer Lambda function and API Gateway
 Metadata:
   Source: https://github.com/mozilla-iam/auth0-cis-webhook-consumer/auth0-cis-webhook-consumer.yaml
-  'AWS::CloudFormation::Interface':
+  AWS::CloudFormation::Interface:
     ParameterGroups:
-    - Label:
-        default: API Gateway
-      Parameters:
-      - CustomDomainName
-      - DomainNameZone
-      - CertificateArn
-    - Label:
-        default: Configuration
-      Parameters:
-        - EnvironmentName
-        - UserWhitelist
-        - NotificationDiscoveryUrl
-        - NotificationAudience
-        - PersonAPIDiscoveryUrl
-        - PersonAPIClientID
-        - PersonAPIAudience
-        - ManagementAPIClientID
-        - ManagementAPIAudience
-        - ManagementAPIDiscoveryUrl
+      - Label:
+          default: API Gateway
+        Parameters:
+          - CustomDomainName
+          - DomainNameZone
+          - CertificateArn
+      - Label:
+          default: Configuration
+        Parameters:
+          - EnvironmentName
+          - UserWhitelist
+          - NotificationDiscoveryUrl
+          - NotificationAudience
+          - PersonAPIDiscoveryUrl
+          - PersonAPIClientID
+          - PersonAPIAudience
+          - ManagementAPIClientID
+          - ManagementAPIAudience
+          - ManagementAPIDiscoveryUrl
     ParameterLabels:
       CustomDomainName:
         default: Custom DNS Domain Name
@@ -31,7 +31,7 @@ Metadata:
       CertificateArn:
         default: AWS ACM Certificate ARN for the Custom DNS Domain Name
       EnvironmentName:
-        default: The name of the environment which is used in AWS SSM Parameter Store paths
+        default: The name of the environment which is used in AWS Secrets Manager Secrets paths
       UserWhitelist:
         default: Comma delimited list of user_id values that should be the only users modified in Auth0
       NotificationDiscoveryUrl:
@@ -65,7 +65,7 @@ Parameters:
     Default: ''
   EnvironmentName:
     Type: String
-    Description: The name of the environment which is used in AWS SSM Parameter Store paths
+    Description: The name of the environment which is used in AWS Secrets Manager Secrets paths
   UserWhitelist:
     Type: CommaDelimitedList
     Description: Comma delimited list of user_id values that should be the only users modified in Auth0
@@ -94,12 +94,39 @@ Parameters:
     Type: String
     Description: The discovery URL for the environment used by the Auth0 Management API
 Conditions:
-  UseCustomDomainName: !Not [ !Equals [ !Ref 'CustomDomainName', '' ] ]
+  UseCustomDomainName: !Not
+    - !Equals
+      - !Ref CustomDomainName
+      - ''
 Rules:
   DomainNameAndCertificateArnProvided:
-    RuleCondition: !Or [ !Not [ !Equals [ !Ref 'CustomDomainName', '' ] ], !Not [ !Equals [ !Ref 'DomainNameZone', '' ] ], !Not [ !Equals [ !Ref 'CertificateArn', '' ] ] ]
+    RuleCondition: !Or
+      - !Not
+        - !Equals
+          - !Ref CustomDomainName
+          - ''
+      - !Not
+        - !Equals
+          - !Ref DomainNameZone
+          - ''
+      - !Not
+        - !Equals
+          - !Ref CertificateArn
+          - ''
     Assertions:
-      - Assert: !And [ !Not [ !Equals [ !Ref 'CustomDomainName', '' ] ], !Not [ !Equals [ !Ref 'DomainNameZone', '' ] ], !Not [ !Equals [ !Ref 'CertificateArn', '' ] ] ]
+      - Assert: !And
+          - !Not
+            - !Equals
+              - !Ref CustomDomainName
+              - ''
+          - !Not
+            - !Equals
+              - !Ref DomainNameZone
+              - ''
+          - !Not
+            - !Equals
+              - !Ref CertificateArn
+              - ''
         AssertDescription: If you set a CustomDomainName, DomainNameZone or CertificateArn you must provide all values
 Resources:
   Auth0CISWebHookConsumerAsyncFunctionRole:
@@ -108,12 +135,12 @@ Resources:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - lambda.amazonaws.com
-          Action:
-          - sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
       Policies:
         - PolicyName: AllowLambdaLogging
           PolicyDocument:
@@ -125,20 +152,36 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: '*'
-        - PolicyName: GetSSMParameters
+        - PolicyName: GetSecretsManagerSecrets
           PolicyDocument:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
                 Action:
-                  - ssm:GetParametersByPath
-                Resource: !Join [ '', [ 'arn:aws:ssm:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':parameter/iam/cis/', !Ref EnvironmentName, '/auth0_cis_webhook_consumer' ] ]
+                  - secretsmanager:BatchGetSecretValue
+                  - secretsmanager:GetSecretValue
+                Resource: !Join
+                  - ''
+                  - - 'arn:aws:secretsmanager:'
+                    - !Ref AWS::Region
+                    - ':'
+                    - !Ref AWS::AccountId
+                    - ':secret/iam/cis/'
+                    - !Ref EnvironmentName
+                    - /auth0_cis_webhook_consumer
               - Effect: Allow
                 Action:
-                  - ssm:GetParameters
-                  - ssm:GetParameter
-                  - ssm:GetParameterHistory
-                Resource: !Join [ '', [ 'arn:aws:ssm:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':parameter/iam/cis/', !Ref EnvironmentName, '/auth0_cis_webhook_consumer/*' ] ]
+                  - secretsmanager:BatchGetSecretValue
+                  - secretsmanager:GetSecretValue
+                Resource: !Join
+                  - ''
+                  - - 'arn:aws:secretsmanager:'
+                    - !Ref AWS::Region
+                    - ':'
+                    - !Ref AWS::AccountId
+                    - ':secret/iam/cis/'
+                    - !Ref EnvironmentName
+                    - /auth0_cis_webhook_consumer/*
   Auth0CISWebHookConsumerFunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -168,9 +211,11 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: DEBUG
-          DOMAIN_NAME: !Ref CustomDomainName  # What if a domain name isn't provided?
+          DOMAIN_NAME: !Ref CustomDomainName
           ENVIRONMENT_NAME: !Ref EnvironmentName
-          USER_WHITELIST: !Join [ ',', !Ref UserWhitelist ]
+          USER_WHITELIST: !Join
+            - ','
+            - !Ref UserWhitelist
           NOTIFICATION_DISCOVERY_URL: !Ref NotificationDiscoveryUrl
           NOTIFICATION_AUDIENCE: !Ref NotificationAudience
           PERSON_API_DISCOVERY_URL: !Ref PersonAPIDiscoveryUrl
@@ -212,7 +257,7 @@ Resources:
         Variables:
           FUNCTION_NAME: !Ref Auth0CISWebHookConsumerAsyncFunction
       Handler: index.lambda_handler
-      Runtime: python3.7  # AWS Lambda doesn't support inline code for python3.8
+      Runtime: python3.7
       Role: !GetAtt Auth0CISWebHookConsumerFunctionRole.Arn
       Tags:
         - Key: application
@@ -225,10 +270,10 @@ Resources:
   Auth0CISWebHookConsumerAsyncFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      # Let's hope that the Lambda function doesn't execute before this LogGroup
-      # resource is created, creating the LogGroup with no expiration and
-      # preventing this resource from creating
-      LogGroupName: !Join [ '/', ['/aws/lambda', !Ref 'Auth0CISWebHookConsumerAsyncFunction' ] ]
+      LogGroupName: !Join
+        - /
+        - - /aws/lambda
+          - !Ref Auth0CISWebHookConsumerAsyncFunction
       RetentionInDays: 30
   Auth0CISWebHookConsumerDomainName:
     Type: AWS::ApiGateway::DomainName
@@ -272,7 +317,15 @@ Resources:
       Action: lambda:invokeFunction
       FunctionName: !GetAtt Auth0CISWebHookConsumerFunction.Arn
       Principal: apigateway.amazonaws.com
-      SourceArn: !Join [ '', [ 'arn:aws:execute-api:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', !Ref 'Auth0CISWebHookConsumerApi', '/*/*' ] ]
+      SourceArn: !Join
+        - ''
+        - - 'arn:aws:execute-api:'
+          - !Ref AWS::Region
+          - ':'
+          - !Ref AWS::AccountId
+          - ':'
+          - !Ref Auth0CISWebHookConsumerApi
+          - /*/*
   Auth0CISWebHookConsumerApiStage:
     Type: AWS::ApiGateway::Stage
     Properties:
@@ -290,8 +343,6 @@ Resources:
           Value: !Ref AWS::StackName
         - Key: source
           Value: https://github.com/mozilla-iam/auth0-cis-webhook-consumer/
-      # Description: x
-      # StageName: LATEST
   Auth0CISWebHookConsumerApiDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
@@ -299,14 +350,6 @@ Resources:
     Properties:
       RestApiId: !Ref Auth0CISWebHookConsumerApi
       StageName: DummyStage
-      # Note This property is required by API Gateway. We recommend that you
-      # specify a name using any value (see Examples) and that you don’t use
-      # this stage. We recommend not using this stage because it is tied to
-      # this deployment, which means you can’t delete one without deleting the
-      # other. For example, if you delete this deployment, API Gateway also
-      # deletes this stage, which you might want to keep. Instead, use the
-      # AWS::ApiGateway::Stage resource to create and associate a stage with
-      # this deployment.
   Auth0CISWebHookConsumerResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -321,12 +364,14 @@ Resources:
       HttpMethod: GET
       Integration:
         Type: AWS_PROXY
-        # https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#set-up-lambda-proxy-integration-using-cli
-        # "For Lambda integrations, you must use the HTTP method of POST for the
-        # integration request, according to the specification of the Lambda service
-        # action for function invocations."
         IntegrationHttpMethod: POST
-        Uri: !Join [ '', [ 'arn:aws:apigateway:', !Ref 'AWS::Region', ':lambda:path/2015-03-31/functions/', !GetAtt 'Auth0CISWebHookConsumerFunction.Arn', '/invocations' ] ]
+        Uri: !Join
+          - ''
+          - - 'arn:aws:apigateway:'
+            - !Ref AWS::Region
+            - ':lambda:path/2015-03-31/functions/'
+            - !GetAtt Auth0CISWebHookConsumerFunction.Arn
+            - /invocations
       ResourceId: !Ref Auth0CISWebHookConsumerResource
       RestApiId: !Ref Auth0CISWebHookConsumerApi
   Auth0CISWebHookConsumerPOSTRequest:
@@ -337,22 +382,35 @@ Resources:
       HttpMethod: POST
       Integration:
         Type: AWS_PROXY
-        # https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#set-up-lambda-proxy-integration-using-cli
-        # "For Lambda integrations, you must use the HTTP method of POST for the
-        # integration request, according to the specification of the Lambda service
-        # action for function invocations."
         IntegrationHttpMethod: POST
-        Uri: !Join [ '', [ 'arn:aws:apigateway:', !Ref 'AWS::Region', ':lambda:path/2015-03-31/functions/', !GetAtt 'Auth0CISWebHookConsumerFunction.Arn', '/invocations' ] ]
+        Uri: !Join
+          - ''
+          - - 'arn:aws:apigateway:'
+            - !Ref AWS::Region
+            - ':lambda:path/2015-03-31/functions/'
+            - !GetAtt Auth0CISWebHookConsumerFunction.Arn
+            - /invocations
       ResourceId: !Ref Auth0CISWebHookConsumerResource
       RestApiId: !Ref Auth0CISWebHookConsumerApi
 Outputs:
   Auth0CISWebHookConsumerUrl:
     Description: The URL of the API
-    Value:
-      Fn::If:
-        - UseCustomDomainName
-        - !Join [ '', [ 'https://', !Ref 'CustomDomainName', '/'] ]
-        - !Join [ '', [ 'https://', !Ref 'Auth0CISWebHookConsumerApi', '.execute-api.', !Ref 'AWS::Region', '.amazonaws.com/', !Ref 'Auth0CISWebHookConsumerApiStage', '/' ] ]
+    Value: !If
+      - UseCustomDomainName
+      - !Join
+        - ''
+        - - https://
+          - !Ref CustomDomainName
+          - /
+      - !Join
+        - ''
+        - - https://
+          - !Ref Auth0CISWebHookConsumerApi
+          - .execute-api.
+          - !Ref AWS::Region
+          - .amazonaws.com/
+          - !Ref Auth0CISWebHookConsumerApiStage
+          - /
   Auth0CISWebHookConsumerFunctionName:
     Description: The AWS Lambda function name
     Value: !Ref Auth0CISWebHookConsumerFunction
