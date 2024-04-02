@@ -225,7 +225,7 @@ Resources:
           MANAGEMENT_API_AUDIENCE: !Ref ManagementAPIAudience
           MANAGEMENT_API_DISCOVERY_URL: !Ref ManagementAPIDiscoveryUrl
       Handler: auth0_cis_webhook_consumer.app.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.12
       Role: !GetAtt Auth0CISWebHookConsumerAsyncFunctionRole.Arn
       Tags:
         - Key: application
@@ -257,7 +257,7 @@ Resources:
         Variables:
           FUNCTION_NAME: !Ref Auth0CISWebHookConsumerAsyncFunction
       Handler: index.lambda_handler
-      Runtime: python3.7
+      Runtime: python3.12
       Role: !GetAtt Auth0CISWebHookConsumerFunctionRole.Arn
       Tags:
         - Key: application
