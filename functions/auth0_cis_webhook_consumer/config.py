@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 def get_secret_value(self, path, secret_name):
     #if the secret exists return it
-    print(path, secret_name, self._secrets)
     if secret_name in self._secrets:
         return self._secrets[secret_name]
     else: #otherwise fetch it from AWS Secrets Manager
