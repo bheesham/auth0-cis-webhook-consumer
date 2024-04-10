@@ -76,7 +76,6 @@ def process_api_call(
                 'headers': {'Content-Type': 'text/html'},
                 'statusCode': 401,
                 'body': "Authorization token invalid"}
-
     else:
         return {
             'headers': {'Content-Type': 'text/html'},

@@ -18,7 +18,7 @@ TEST_ENVIRONMENT_NAME	:= testing
 
 PROD_PERSONAPI_CLIENT_ID		:= ztz01UXzlek7oGIn4b4s1wh3FGEHwtXj
 PROD_MANAGEMENT_API_CLIENT_ID	:= kG1kIwfT7tVANi6bIsZ1ZXWqjTFyJYAg
-DEV_MANAGEMENT_API_CLIENT_ID	:= Vh35EgJf4ZPK1BPSQW4qVmcnSnWgPtC9
+DEV_MANAGEMENT_API_CLIENT_ID	:= kRBbQT9ZzCYy91k3Q5wuzygfiFPj2RUl
 
 # https://github.com/mozilla-iam/cis/blob/a785c367c533e76a5935b456351453efdc2740b9/serverless-functions/webhook_notifier/serverless.yml#L23-L26
 # CIS Webhook notifier uses prod Auth0 for all 3 environments
@@ -40,9 +40,9 @@ TEST_NOTIFICATION_AUDIENCE		:= hook.test.sso.allizom.org
 
 # https://auth0.com/docs/api/management/v2/#Authentication
 PROD_MANAGEMENT_DISCOVERY_URL	:= https://auth.mozilla.auth0.com/.well-known/openid-configuration
-DEV_MANAGEMENT_DISCOVERY_URL	:= https://auth-dev.mozilla.auth0.com/.well-known/openid-configuration
+DEV_MANAGEMENT_DISCOVERY_URL	:= https://dev.mozilla-dev.auth0.com/.well-known/openid-configuration
 PROD_MANAGEMENT_API_AUDIENCE	:= https://auth.mozilla.auth0.com/api/v2/
-DEV_MANAGEMENT_API_AUDIENCE		:= https://auth-dev.mozilla.auth0.com/api/v2/
+DEV_MANAGEMENT_API_AUDIENCE		:= https://dev.mozilla-dev.auth0.com/api/v2/
 
 # USER_WHITELIST	:= ad|Mozilla-LDAP|gene,ad|Mozilla-LDAP|FMerz,ad|Mozilla-LDAP-Dev|gene,ad|Mozilla-LDAP-Dev|FMerz,ad|Mozilla-LDAP|hcondei,ad|Mozilla-LDAP-Dev|hcondei
 USER_WHITELIST	:= ""

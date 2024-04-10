@@ -187,7 +187,7 @@ def hack_user_id(user_id):
     prod_ldap_user_id_prefix = 'ad|Mozilla-LDAP|'
     dev_ldap_user_id_prefix = 'ad|Mozilla-LDAP-Dev|'
     issuer = CONFIG.management_api_discovery_document['issuer']
-    dev_issuer = 'https://auth-dev.mozilla.auth0.com/'
+    dev_issuer = 'https://dev.mozilla-dev.auth0.com/'
     if user_id.startswith(prod_ldap_user_id_prefix) and issuer == dev_issuer:
         # Hack to translate LDAP user IDs fetched from production and added to
         # Auth0 auth-dev

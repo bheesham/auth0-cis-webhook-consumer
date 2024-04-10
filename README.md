@@ -148,6 +148,18 @@ make deploy-dev
 
 # Testing
 
+## Unit Testing
+To run unit tests enter the command
+```
+pytest
+```
+
+### Using Moto to Mock AWS Services
+AWS Secrets are mocked using the [moto](https://docs.getmoto.org/en/latest/index.html) library.
+
+Moto requires fake AWS credentials be established before the test. All tests should be annotated with @mock_aws.
+
+
 ## Query
 
 ```
@@ -229,7 +241,7 @@ graph TD
 
 These problems would need to be fixed to be able to use this in dev
 * The URL https://auth.allizom.org/.well-known/openid-configuration doesn't
-  correctly proxy the request on to https://auth-dev.mozilla.auth0.com/.well-known/openid-configuration
+  correctly proxy the request on to https://dev.mozilla-dev.auth0.com/.well-known/openid-configuration
   * https://github.com/mozilla-iam/cis/issues/239#issuecomment-633789313
 * https://person.api.dev.sso.allizom.org appears to return 500 errors
 * I wonder if this API client in auth0-dev is used for anything : https://manage-dev.mozilla.auth0.com/dashboard/pi/auth-dev/apis/5ade471295cf6c01e80c3cdc/settings
