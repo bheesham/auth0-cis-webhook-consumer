@@ -18,7 +18,7 @@ TEST_ENVIRONMENT_NAME	:= testing
 
 PROD_PERSONAPI_CLIENT_ID		:= ztz01UXzlek7oGIn4b4s1wh3FGEHwtXj
 PROD_MANAGEMENT_API_CLIENT_ID	:= kG1kIwfT7tVANi6bIsZ1ZXWqjTFyJYAg
-DEV_MANAGEMENT_API_CLIENT_ID	:= Vh35EgJf4ZPK1BPSQW4qVmcnSnWgPtC9
+DEV_MANAGEMENT_API_CLIENT_ID	:= kRBbQT9ZzCYy91k3Q5wuzygfiFPj2RUl
 
 # https://github.com/mozilla-iam/cis/blob/a785c367c533e76a5935b456351453efdc2740b9/serverless-functions/webhook_notifier/serverless.yml#L23-L26
 # CIS Webhook notifier uses prod Auth0 for all 3 environments
