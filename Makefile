@@ -40,9 +40,9 @@ TEST_NOTIFICATION_AUDIENCE		:= hook.test.sso.allizom.org
 
 # https://auth0.com/docs/api/management/v2/#Authentication
 PROD_MANAGEMENT_DISCOVERY_URL	:= https://auth.mozilla.auth0.com/.well-known/openid-configuration
-DEV_MANAGEMENT_DISCOVERY_URL	:= https://auth-dev.mozilla.auth0.com/.well-known/openid-configuration
+DEV_MANAGEMENT_DISCOVERY_URL	:= https://dev.mozilla-dev.auth0.com/.well-known/openid-configuration
 PROD_MANAGEMENT_API_AUDIENCE	:= https://auth.mozilla.auth0.com/api/v2/
-DEV_MANAGEMENT_API_AUDIENCE		:= https://auth-dev.mozilla.auth0.com/api/v2/
+DEV_MANAGEMENT_API_AUDIENCE		:= https://dev.mozilla-dev.auth0.com/api/v2/
 
 # USER_WHITELIST	:= ad|Mozilla-LDAP|gene,ad|Mozilla-LDAP|FMerz,ad|Mozilla-LDAP-Dev|gene,ad|Mozilla-LDAP-Dev|FMerz,ad|Mozilla-LDAP|hcondei,ad|Mozilla-LDAP-Dev|hcondei
 USER_WHITELIST	:= ""
