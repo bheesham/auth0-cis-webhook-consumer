@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 def test_get_secret_value_success():
 
     """Test Configuration getting secrets from AWS Secrets Manager"""
+    os.environ['AWS_DEFAULT_REGION'] = 'us-west-2'
     os.environ['AWS_ACCESS_KEY_ID'] = 'fake-access-key'
     os.environ['AWS_SECRET_ACCESS_KEY'] = 'fake-secret-key'
     os.environ['AWS_SECURITY_TOKEN'] = 'fake-security-token'
