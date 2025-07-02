@@ -1,5 +1,5 @@
 python-jose==3.4.0
-requests==2.32.3
+requests==2.32.4
 boto3==1.37.6
 moto==5.1.1
 pytest==8.3.5
