@@ -142,8 +142,21 @@ With a description of `OAuth client secret for https://github.com/mozilla-iam/au
 
 Run this in the `mozilla-iam` AWS account
 ```
-export AWS_DEFAULT_REGION="us-west-2"
-make deploy-dev
+AWS_PROFILE=iam-admin make deploy-dev
+```
+
+### What's the AWS iam-admin profile?
+
+In your `~/.aws/config`, ensure the following exists:
+
+```
+[profile iam-admin]
+sso_session = mozilla
+sso_account_id = 320464205386
+sso_role_name = AdministratorAccess
+sso_region = us-west-2
+region = us-west-2
+sso_start_url = https://mozilla-aws.awsapps.com/start#
 ```
 
 # Testing
@@ -151,7 +164,7 @@ make deploy-dev
 ## Unit Testing
 To run unit tests enter the command
 ```
-pytest
+pytest test
 ```
 
 ### Using Moto to Mock AWS Services

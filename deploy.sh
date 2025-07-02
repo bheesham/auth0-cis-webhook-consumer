@@ -36,22 +36,29 @@ elif ! echo "$result" | grep "$ACCOUNT_ID" >/dev/null; then
 fi
 set -e
 
-# This tempfile is required because of https://github.com/aws/aws-cli/issues/2504
-TMPFILE="$(mktemp).yaml"
-TMPDIR=$(mktemp -d)
-TARGET_PATH="`dirname \"${TEMPLATE_FILENAME}\"`"
-ln -n -f -s $TMPDIR "${TARGET_PATH}/build"
-trap "{ rm -v -f $TMPFILE;rm -f -r $TMPDIR;rm -v -f \"${TARGET_PATH}/build\"; }" EXIT
+mkdir -p "build-$STACK_NAME"
 
-pip install --target "${TARGET_PATH}/build/" -r "${TARGET_PATH}/requirements.txt"
+docker run --entrypoint pip \
+    --platform linux/amd64 \
+    --workdir /src \
+    --volume "$(pwd)":/src:ro \
+    --volume "$(pwd)/build-$STACK_NAME":/build:rw \
+    -it python:3.12 \
+    install \
+        --target "/build/" \
+        -r requirements.txt
+
 # https://unix.stackexchange.com/a/180987/22701
-cp -v -R "${TARGET_PATH}/functions/." "${TARGET_PATH}/build/"
+cp -v -R "functions/." "build-$STACK_NAME/"
+
+# Required, because we use `Code:` in the cloudformation template.
+ln -Ffs "./build-$STACK_NAME" "./build"
 
 aws cloudformation package \
   --template $TEMPLATE_FILENAME \
   --s3-bucket $S3_BUCKET \
   $S3_PREFIX_ARG \
-  --output-template-file $TMPFILE
+  --output-template-file "output-$STACK_NAME.yaml"
 
 if [ "$(aws cloudformation describe-stacks --query "length(Stacks[?StackName=='${STACK_NAME}'])")" = "1" ]; then
   # Stack already exists, it will be updated
@@ -62,7 +69,7 @@ else
 fi
 
 set +e
-if aws cloudformation deploy --template-file $TMPFILE --stack-name $STACK_NAME \
+if aws cloudformation deploy --template-file "output-$STACK_NAME.yaml" --stack-name $STACK_NAME \
     --capabilities CAPABILITY_IAM \
     --parameter-overrides \
       $PARAMETER_OVERRIDES; then
