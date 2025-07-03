@@ -55,9 +55,9 @@ cp -v -R "functions/." "build-$STACK_NAME/"
 ln -Ffs "./build-$STACK_NAME" "./build"
 
 aws cloudformation package \
-  --template $TEMPLATE_FILENAME \
-  --s3-bucket $S3_BUCKET \
-  $S3_PREFIX_ARG \
+  --template "$TEMPLATE_FILENAME" \
+  --s3-bucket "$S3_BUCKET" \
+  "$S3_PREFIX_ARG" \
   --output-template-file "output-$STACK_NAME.yaml"
 
 if [ "$(aws cloudformation describe-stacks --query "length(Stacks[?StackName=='${STACK_NAME}'])")" = "1" ]; then
@@ -69,20 +69,22 @@ else
 fi
 
 set +e
-if aws cloudformation deploy --template-file "output-$STACK_NAME.yaml" --stack-name $STACK_NAME \
+if aws cloudformation deploy --template-file "output-$STACK_NAME.yaml" --stack-name "$STACK_NAME" \
     --capabilities CAPABILITY_IAM \
     --parameter-overrides \
-      $PARAMETER_OVERRIDES; then
+      "$PARAMETER_OVERRIDES"; then
   echo "Waiting for stack to reach a COMPLETE state"
-  if aws cloudformation wait $wait_verb --stack-name  $STACK_NAME; then
+  if aws cloudformation wait $wait_verb --stack-name "$STACK_NAME"; then
     if [ "$OUTPUT_VAR_NAME" ]; then
-      aws cloudformation describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs[?OutputKey=='${OUTPUT_VAR_NAME}'].OutputValue" --output text
+      aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='${OUTPUT_VAR_NAME}'].OutputValue" --output text
     fi
     exit 0
   fi
 fi
+
+# shellcheck disable=SC2016 # Don't need to expand, that's the query syntax.
 aws cloudformation describe-stack-events \
-  --stack-name $STACK_NAME \
+  --stack-name "$STACK_NAME" \
   --query 'StackEvents[?ends_with(ResourceStatus, `_FAILED`)].[LogicalResourceId, ResourceType, ResourceStatusReason]' \
   --output text
 exit 1
