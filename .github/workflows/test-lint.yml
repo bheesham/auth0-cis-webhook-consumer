@@ -1,0 +1,33 @@
+name: test-lint
+
+on:
+  push: {}
+  pull_request: {}
+
+jobs:
+  test-lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: 'requirements.txt'
+      - name: Setup Python and dependencies
+        run: |
+          pip install -r requirements.txt
+      - name: Run the tests
+        run: |
+          pytest test
+      # See:
+      #
+      # - https://github.com/aws-cloudformation/cfn-lint
+      # - https://github.com/marketplace/actions/cfn-lint-action
+      - name: Setup Cloud Formation Linter with Latest Version
+        uses: scottbrenner/cfn-lint-action@v2
+      - name: Lint the cfn template
+        run: |
+          # W3002: This code may only work with 'package' cli command
+          # That's how this is written. Maybe one day we can change this.
+          cfn-lint -i W3002 -- auth0-cis-webhook-consumer.yaml
