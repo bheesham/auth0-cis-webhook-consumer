@@ -243,27 +243,36 @@ Resources:
       Description: Auth0 CIS WebHook Consumer Launcher
       Code:
         ZipFile: |
-          import boto3, json, logging, os
+          import botocore, boto3, json, logging, os
           logger = logging.getLogger()
           def lambda_handler(event: dict, context: dict) -> dict:
-            client = boto3.client('lambda')
+            client = boto3.client("lambda")
             try:
               response = client.invoke(
-                FunctionName=os.getenv('FUNCTION_NAME'),
-                InvocationType='Event',
-                LogType='None',
-                Payload=json.dumps(event).encode('utf-8'),
+                FunctionName=os.getenv("FUNCTION_NAME"),
+                InvocationType="Event",
+                LogType="None",
+                Payload=json.dumps(event).encode("utf-8"),
               )
-              status_code = response['StatusCode']
+              status_code = response["StatusCode"]
               message = f"Webhook received ({status_code})"
-            except Exception:
-              message = "Could not trigger webhook (exception occured)"
+            except botocore.exceptions.ClientError as exc:
+              # See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.html
+              if exc.response["Error"]["Code"] == "RequestEntityTooLargeException":
+                status_code = 400
+                message = "Event payload too large"
+              else:
+                status_code = 500
+                message = "Exception occured"
+              logger.exception(message)
+            except:
               status_code = 500
+              message = "Unknown exception occured"
               logger.exception(message)
             return {
-              'headers': {'Content-Type': 'text/html'},
-              'statusCode': status_code,
-              'body': message,
+              "headers": {"Content-Type": "text/html"},
+              "statusCode": status_code,
+              "body": message,
             }
       Environment:
         Variables:
