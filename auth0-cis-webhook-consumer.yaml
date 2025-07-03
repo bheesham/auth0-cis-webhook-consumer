@@ -194,6 +194,8 @@ Resources:
                 - lambda.amazonaws.com
             Action:
               - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
         - PolicyName: AllowLambdaInvoke
           PolicyDocument:
@@ -241,18 +243,28 @@ Resources:
       Description: Auth0 CIS WebHook Consumer Launcher
       Code:
         ZipFile: |
-          import boto3, os, json
+          import boto3, json, logging, os
+          logger = logging.getLogger()
           def lambda_handler(event: dict, context: dict) -> dict:
             client = boto3.client('lambda')
-            response = client.invoke(
+            try:
+              response = client.invoke(
                 FunctionName=os.getenv('FUNCTION_NAME'),
                 InvocationType='Event',
                 LogType='None',
-                Payload=json.dumps(event).encode('utf-8'))
+                Payload=json.dumps(event).encode('utf-8'),
+              )
+              status_code = response['StatusCode']
+              message = f"Webhook received ({status_code})"
+            except Exception:
+              message = "Could not trigger webhook (exception occured)"
+              status_code = 500
+              logger.exception(message)
             return {
               'headers': {'Content-Type': 'text/html'},
-              'statusCode': response['StatusCode'],
-              'body': 'Webhook received'}
+              'statusCode': status_code,
+              'body': message,
+            }
       Environment:
         Variables:
           FUNCTION_NAME: !Ref Auth0CISWebHookConsumerAsyncFunction
