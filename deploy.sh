@@ -10,7 +10,6 @@ S3_BUCKET=$3
 STACK_NAME=$4
 # s3-path-prefix
 S3_PREFIX=$5
-S3_PREFIX_ARG="--s3-prefix $S3_PREFIX"
 
 # Optional arguments
 
@@ -57,7 +56,7 @@ ln -Ffs "./build-$STACK_NAME" "./build"
 aws cloudformation package \
   --template "$TEMPLATE_FILENAME" \
   --s3-bucket "$S3_BUCKET" \
-  "$S3_PREFIX_ARG" \
+  --s3-prefix "$S3_PREFIX" \
   --output-template-file "output-$STACK_NAME.yaml"
 
 if [ "$(aws cloudformation describe-stacks --query "length(Stacks[?StackName=='${STACK_NAME}'])")" = "1" ]; then
@@ -69,10 +68,11 @@ else
 fi
 
 set +e
+# shellcheck disable=SC2086 # Turns out we do want splitting.
 if aws cloudformation deploy --template-file "output-$STACK_NAME.yaml" --stack-name "$STACK_NAME" \
     --capabilities CAPABILITY_IAM \
     --parameter-overrides \
-      "$PARAMETER_OVERRIDES"; then
+      $PARAMETER_OVERRIDES; then
   echo "Waiting for stack to reach a COMPLETE state"
   if aws cloudformation wait $wait_verb --stack-name "$STACK_NAME"; then
     if [ "$OUTPUT_VAR_NAME" ]; then
