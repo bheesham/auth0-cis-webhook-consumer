@@ -2,12 +2,14 @@ API_STACK_NAME	:= a0-cis-hook-consumer
 CODE_STORAGE_S3_PREFIX := auth0-cis-webhook-consumer
 LAMBDA_CODE_STORAGE_S3_BUCKET_NAME := public.us-west-2.iam.mozilla.com
 
+# See note below about discovery URL.
 PROD_DOMAIN_NAME	:= auth0-cis-webhook-consumer.sso.mozilla.com
 DEV_DOMAIN_NAME		:= auth0-cis-webhook-consumer.dev.sso.allizom.org
 TEST_DOMAIN_NAME	:= auth0-cis-webhook-consumer.test.sso.allizom.org
 
 ACCOUNT_ID			:= 320464205386
 
+# See note below about discovery URL.
 PROD_DOMAIN_ZONE	:= sso.mozilla.com.
 DEV_DOMAIN_ZONE		:= sso.allizom.org.
 TEST_DOMAIN_ZONE	:= sso.allizom.org.
@@ -29,10 +31,16 @@ DEV_MANAGEMENT_API_CLIENT_ID	:= kRBbQT9ZzCYy91k3Q5wuzygfiFPj2RUl
 TEST_MANAGEMENT_API_CLIENT_ID	:= kG1kIwfT7tVANi6bIsZ1ZXWqjTFyJYAg
 
 # https://github.com/mozilla-iam/cis/blob/a785c367c533e76a5935b456351453efdc2740b9/serverless-functions/webhook_notifier/serverless.yml#L23-L26
-# CIS Webhook notifier uses prod Auth0 for all 3 environments
+# CIS Webhook notifier uses prod Auth0 for stage as well, because we don't have
+# a separate tenant/domain for stage. To get this to work, we'd need:
+# * a new Auth0 custom domain for stage;
+# * updated code for auth0-deploy to stash (pre|suf)fixed attributes (e.g.
+#   `groups_test` (test), `groups` (prod), or something; and
+# * new domain/content for the discovery URL (mozilla-iam/cis/well-known-endpoint)
+#   * and updated parts of CIS and DinoPark for it.
 PROD_NOTIFICATION_DISCOVERY_URL	:= https://auth.mozilla.com/.well-known/mozilla-iam
-DEV_NOTIFICATION_DISCOVERY_URL 	:= https://idp.iam.mozilla.com/.well-known/mozilla-iam
-TEST_NOTIFICATION_DISCOVERY_URL	:= https://idp.iam.mozilla.com/.well-known/mozilla-iam
+DEV_NOTIFICATION_DISCOVERY_URL 	:= https://auth.allizom.org/.well-known/mozilla-iam
+TEST_NOTIFICATION_DISCOVERY_URL	:= https://auth.mozilla.com/.well-known/mozilla-iam
 
 # https://github.com/mozilla-iam/cis/blob/a785c367c533e76a5935b456351453efdc2740b9/serverless-functions/profile_retrieval/serverless.yml#L24-L27
 PROD_PERSONAPI_DISCOVERY_URL	:= https://auth.mozilla.auth0.com/.well-known/openid-configuration
