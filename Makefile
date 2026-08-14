@@ -55,8 +55,10 @@ DEV_MANAGEMENT_DISCOVERY_URL	:= https://idp-dev.iam.mozilla.com/.well-known/open
 TEST_MANAGEMENT_DISCOVERY_URL	:= https://idp.iam.mozilla.com/.well-known/openid-configuration
 
 PROD_MANAGEMENT_API_AUDIENCE	:= https://auth.mozilla.auth0.com/api/v2/
-DEV_MANAGEMENT_API_AUDIENCE	:= https://idp-dev.iam.mozilla.com/api/v2/
-TEST_MANAGEMENT_API_AUDIENCE	:= https://idp.iam.mozilla.com/api/v2/
+DEV_MANAGEMENT_API_AUDIENCE	:= https://dev.mozilla-dev.auth0.com/api/v2/
+# Bhee doesn't think we can make a stage-specific one of these, since this is
+# the management API.
+TEST_MANAGEMENT_API_AUDIENCE	:= https://auth.mozilla.auth0.com/api/v2/
 
 # USER_WHITELIST	:= ad|Mozilla-LDAP|gene,ad|Mozilla-LDAP|FMerz,ad|Mozilla-LDAP-Dev|gene,ad|Mozilla-LDAP-Dev|FMerz,ad|Mozilla-LDAP|hcondei,ad|Mozilla-LDAP-Dev|hcondei
 USER_WHITELIST	:= ""
